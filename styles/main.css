@@ -503,4 +503,138 @@ body::before {
 body.role-patient .admin-only { display: none !important; }
 body.role-admin .patient-only { display: none !important; }
 
-/* Existing Scripts/Scrollbars below... */
+/* Nexus Digital Health Card */
+.nexus-card {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    width: 360px;
+    height: 220px;
+    border-radius: 20px;
+    padding: 24px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    margin: 0 auto;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.nexus-card::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%; width: 200%; height: 200%;
+    background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+}
+
+.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+.card-logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; }
+.card-chip { width: 45px; height: 35px; background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); border-radius: 6px; position: relative; }
+
+.card-middle { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
+.patient-info .name { font-size: 1.2rem; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.05em; }
+.patient-info .abha { font-family: monospace; font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+
+.qr-code { width: 60px; height: 60px; background: white; padding: 4px; border-radius: 8px; }
+.qr-pattern { width: 100%; height: 100%; background: repeating-conic-gradient(#000 0% 25%, #fff 0% 50%) 50% / 10px 10px; }
+
+.card-bottom { display: flex; justify-content: space-between; font-size: 0.65rem; font-weight: 700; color: rgba(255,255,255,0.5); border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; }
+
+/* Scanner Simulation */
+.scanner-frame {
+    width: 260px;
+    height: 260px;
+    position: relative;
+    border: 2px solid rgba(255,255,255,0.1);
+    z-index: 10;
+}
+
+.corner { position: absolute; width: 30px; height: 30px; border: 4px solid var(--primary); }
+.tl { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+.tr { top: -2px; right: -2px; border-left: none; border-bottom: none; }
+.bl { bottom: -2px; left: -2px; border-right: none; border-top: none; }
+.br { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+
+.scan-beam {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 4px;
+    background: var(--primary);
+    box-shadow: 0 0 15px var(--primary);
+    animation: scan 2s infinite ease-in-out;
+}
+
+@keyframes scan {
+    0% { top: 0; }
+    50% { top: 100%; }
+    100% { top: 0; }
+}
+
+/* Link Cards */
+.link-card {
+    padding: 24px;
+    background: #fff;
+    border: 2px solid var(--border);
+    border-radius: 20px;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.link-card:hover { border-color: var(--primary); transform: translateY(-4px); }
+.link-card.linked { border-color: var(--success); background: #f0fdf4; }
+
+.bank-tile {
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.bank-tile:hover { background: var(--primary-light); border-color: var(--primary); }
+
+/* Switch UI */
+.switch-ui {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.switch-ui input { opacity: 0; width: 0; height: 0; }
+.switch-ui span {
+    position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #cbd5e1;
+    transition: .4s; border-radius: 24px;
+}
+
+.switch-ui span:before {
+    position: absolute; content: "";
+    height: 18px; width: 18px; left: 3px; bottom: 3px;
+    background-color: white; transition: .4s; border-radius: 50%;
+}
+
+input:checked + span { background-color: var(--success); }
+input:checked + span:before { transform: translateX(20px); }
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 40px; left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: #1e293b;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    box-shadow: var(--shadow-lg);
+    z-index: 3000;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+.btn-text {
+    background: none; border: none; padding: 0; color: var(--primary); cursor: pointer; font-size: inherit; font-family: inherit;
+}

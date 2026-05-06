@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles/main.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
     <div id="login-screen" class="login-overlay">
@@ -32,17 +34,30 @@
                 </div>
             </div>
 
-            <div id="login-form" class="login-form-container hidden">
+            <div id="admin-login-form" class="login-form-container hidden">
                 <div class="form-group">
-                    <label>User Identifier</label>
-                    <input type="text" id="login-userid" placeholder="e.g. dr.gupta@nexus.ai">
+                    <label>Official Email Address</label>
+                    <input type="text" id="admin-login-userid" placeholder="e.g. dr.gupta@nexus.ai">
                 </div>
                 <div class="form-group">
-                    <label>Access Code</label>
-                    <input type="password" id="login-password" placeholder="••••••••">
+                    <label>Access Password</label>
+                    <input type="password" id="admin-login-password" placeholder="••••••••">
                 </div>
-                <button id="submit-login" class="btn-primary" style="width: 100%; margin-top: 24px; padding: 16px;">Secure Access</button>
-                <button id="back-to-roles" style="width: 100%; margin-top: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">← Choose a different portal</button>
+                <button id="submit-admin-login" class="btn-primary" style="width: 100%; margin-top: 24px; padding: 16px;">Secure Access</button>
+                <button class="back-to-roles" style="width: 100%; margin-top: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">← Choose a different portal</button>
+            </div>
+
+            <div id="patient-login-form" class="login-form-container hidden">
+                <div class="form-group">
+                    <label>ABHA ID / Mobile Number</label>
+                    <input type="text" id="patient-login-userid" placeholder="e.g. arjun.sharma@abha.in">
+                </div>
+                <div class="form-group">
+                    <label>Secure PIN</label>
+                    <input type="password" id="patient-login-password" placeholder="••••••••">
+                </div>
+                <button id="submit-patient-login" class="btn-primary" style="width: 100%; margin-top: 24px; padding: 16px; background: var(--success); color: white;">Access My Health Records</button>
+                <button class="back-to-roles" style="width: 100%; margin-top: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;">← Choose a different portal</button>
             </div>
         </div>
     </div>
