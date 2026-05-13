@@ -13,9 +13,16 @@ CORS(app)
 
 # Configuration
 # Support Vercel Postgres or other remote databases
-database_url = os.environ.get('DATABASE_URL', 'sqlite:///database.db')
-if database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+else:
+    # If on Vercel and no remote DB, use /tmp for SQLite (writable but non-persistent)
+    if os.environ.get('VERCEL'):
+        database_url = 'sqlite:////tmp/database.db'
+    else:
+        database_url = 'sqlite:///database.db'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -29,14 +36,12 @@ with app.app_context():
     # Check if we need to seed
     if not User.query.filter_by(username='dr.gupta@nexus.ai').first():
         try:
+            # We import here to avoid circular dependencies if any
             from init_db import init_db
-            # Note: init_db in its current form drops all tables, 
-            # which might be dangerous in production. 
-            # For a quick deployment, we'll just ensure tables exist.
-            # If the user wants to seed, they should run init_db.py manually or we can trigger a safe seed here.
-            pass 
-        except ImportError:
-            pass
+            print("Seeding database...")
+            init_db()
+        except Exception as e:
+            print(f"Seeding skipped or failed: {e}")
 
 # Authentication Decorator
 def token_required(f):
