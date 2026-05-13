@@ -221,56 +221,88 @@ def add_vital(current_user, id):
     db.session.commit()
     return jsonify({'message': 'Vital added successfully', 'patient': patient.to_dict()}), 201
 
+import google.generativeai as genai
+
+# Configure Gemini AI
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+else:
+    model = None
+
 @app.route('/api/chat', methods=['POST'])
 @token_required
 def chat_analysis(current_user):
     data = request.get_json()
     patient_id = data.get('patient_id')
-    message = data.get('message', '').lower()
+    message = data.get('message', '')
     
     if not patient_id:
         return jsonify({'message': 'Patient ID is required'}), 400
         
     patient = Patient.query.get_or_404(patient_id)
+    vitals_list = Vital.query.filter_by(patient_id=patient.id).order_by(Vital.timestamp.desc()).limit(5).all()
+    latest_vital = vitals_list[0] if vitals_list else None
     
-    # Simple simulated clinical AI logic
-    analysis = ""
-    vitals = patient.vitals[-1] if patient.vitals else None
-    
-    if "analyze" in message or "status" in message or "summary" in message:
-        analysis = f"Clinical analysis for {patient.name} (Age: {patient.age}):\n\n"
-        
-        if vitals:
-            analysis += f"• Vitals: HR {vitals.hr} bpm, BP {vitals.bp}, SpO2 {vitals.spo2}%. "
-            if vitals.hr > 100 or vitals.spo2 < 95:
-                analysis += "WARNING: Abnormal vital signs detected. "
-            else:
-                analysis += "Vitals are within stable range. "
-        
-        analysis += f"\n• Health Score: {patient.health_score}/100. "
-        if patient.health_score < 50:
-            analysis += "Status is CRITICAL. Priority intervention required. "
-        
-        if patient.conditions:
-            conds = ", ".join([c.name for c in patient.conditions])
-            analysis += f"\n• Known Conditions: {conds}."
+    # Context for AI
+    context = {
+        'name': patient.name,
+        'age': patient.age,
+        'status': patient.status,
+        'health_score': patient.health_score,
+        'conditions': [c.name for c in patient.conditions],
+        'vitals': [{'hr': v.hr, 'bp': v.bp, 'spo2': v.spo2, 'time': v.timestamp.strftime('%H:%M')} for v in vitals_list],
+        'activities': [a.to_dict() for a in patient.activities[:5]]
+    }
+
+    if model:
+        try:
+            prompt = f"""
+            You are Nexus AI, an advanced clinical decision support system. 
+            You are analyzing the patient: {context['name']} (Age: {context['age']}).
             
-        if "diabetes" in conds.lower():
-            analysis += " Note: Recent lab trends for HbA1c should be reviewed."
+            Current Clinical State:
+            - Status: {context['status']}
+            - Health Score: {context['health_score']}/100
+            - Conditions: {', '.join(context['conditions'])}
+            - Latest Vitals: {context['vitals'][0] if context['vitals'] else 'N/A'}
+            - Recent Activity: {len(context['activities'])} entries
             
-        analysis += f"\n• Recent History: {len(patient.activities)} activities recorded."
-        
-    elif "recommend" in message or "plan" in message:
-        analysis = f"Recommended Action Plan for {patient.name}:\n"
-        if patient.status == 'Critical':
-            analysis += "1. Immediate stabilization of vitals.\n2. Stat blood gas and electrolyte panel.\n3. Continuous telemetry monitoring."
-        else:
-            analysis += "1. Regular monitoring of vitals.\n2. Schedule follow-up in 2 weeks.\n3. Review lifestyle and dietary compliance."
+            User Query: "{message}"
+            
+            Instructions:
+            1. Provide a professional, clinical analysis based ONLY on the data provided.
+            2. If vitals are abnormal (e.g. HR > 100, SpO2 < 95), highlight them immediately.
+            3. Be concise and use medical terminology where appropriate.
+            4. If the query is "analyze" or "summary", provide a structured deep-scan of their current risk profile.
+            5. Always maintain a clinical and objective tone.
+            """
+            
+            response = model.generate_content(prompt)
+            reply = response.text
+        except Exception as e:
+            reply = f"AI Engine Error: {str(e)}. Falling back to local analysis..."
+            model_fallback = True
     else:
-        analysis = "I am the Nexus AI Assistant. I can analyze patient data, summarize clinical history, and provide recommendations based on the current dashboard data. How can I help with this patient?"
+        model_fallback = True
+
+    if not model or 'model_fallback' in locals():
+        # Enhanced simulated clinical logic
+        m = message.lower()
+        if "analyze" in m or "status" in m or "summary" in m:
+            reply = f"Clinical scan for {patient.name}:\n\n"
+            if latest_vital:
+                reply += f"• Vitals: HR {latest_vital.hr}, BP {latest_vital.bp}, SpO2 {latest_vital.spo2}%. "
+                if latest_vital.hr > 100 or latest_vital.spo2 < 95:
+                    reply += "ALERT: Critical vital signs detected. "
+            reply += f"\n• Score: {patient.health_score}/100. Status: {patient.status}."
+            reply += f"\n• History: {len(patient.conditions)} conditions, {len(patient.activities)} activities."
+        else:
+            reply = "I am running in local mode (No Gemini API Key found). I can provide basic clinical summaries. Please add a GEMINI_API_KEY to enable full reasoning."
 
     return jsonify({
-        'reply': analysis,
+        'reply': reply,
         'timestamp': datetime.datetime.now(timezone.utc).strftime('%H:%M')
     })
 
