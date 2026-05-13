@@ -221,5 +221,58 @@ def add_vital(current_user, id):
     db.session.commit()
     return jsonify({'message': 'Vital added successfully', 'patient': patient.to_dict()}), 201
 
+@app.route('/api/chat', methods=['POST'])
+@token_required
+def chat_analysis(current_user):
+    data = request.get_json()
+    patient_id = data.get('patient_id')
+    message = data.get('message', '').lower()
+    
+    if not patient_id:
+        return jsonify({'message': 'Patient ID is required'}), 400
+        
+    patient = Patient.query.get_or_404(patient_id)
+    
+    # Simple simulated clinical AI logic
+    analysis = ""
+    vitals = patient.vitals[-1] if patient.vitals else None
+    
+    if "analyze" in message or "status" in message or "summary" in message:
+        analysis = f"Clinical analysis for {patient.name} (Age: {patient.age}):\n\n"
+        
+        if vitals:
+            analysis += f"• Vitals: HR {vitals.hr} bpm, BP {vitals.bp}, SpO2 {vitals.spo2}%. "
+            if vitals.hr > 100 or vitals.spo2 < 95:
+                analysis += "WARNING: Abnormal vital signs detected. "
+            else:
+                analysis += "Vitals are within stable range. "
+        
+        analysis += f"\n• Health Score: {patient.health_score}/100. "
+        if patient.health_score < 50:
+            analysis += "Status is CRITICAL. Priority intervention required. "
+        
+        if patient.conditions:
+            conds = ", ".join([c.name for c in patient.conditions])
+            analysis += f"\n• Known Conditions: {conds}."
+            
+        if "diabetes" in conds.lower():
+            analysis += " Note: Recent lab trends for HbA1c should be reviewed."
+            
+        analysis += f"\n• Recent History: {len(patient.activities)} activities recorded."
+        
+    elif "recommend" in message or "plan" in message:
+        analysis = f"Recommended Action Plan for {patient.name}:\n"
+        if patient.status == 'Critical':
+            analysis += "1. Immediate stabilization of vitals.\n2. Stat blood gas and electrolyte panel.\n3. Continuous telemetry monitoring."
+        else:
+            analysis += "1. Regular monitoring of vitals.\n2. Schedule follow-up in 2 weeks.\n3. Review lifestyle and dietary compliance."
+    else:
+        analysis = "I am the Nexus AI Assistant. I can analyze patient data, summarize clinical history, and provide recommendations based on the current dashboard data. How can I help with this patient?"
+
+    return jsonify({
+        'reply': analysis,
+        'timestamp': datetime.datetime.now(timezone.utc).strftime('%H:%M')
+    })
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

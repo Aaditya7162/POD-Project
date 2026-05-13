@@ -1297,3 +1297,94 @@ function renderDashboardStyles() {
 const fab = document.createElement('div');
 fab.innerHTML = `<div style="position:fixed; bottom:32px; left:32px; width:60px; height:60px; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-size:1.5rem; cursor:pointer; box-shadow:var(--shadow-lg); z-index:2000;" onclick="alert('Clinician Messaging Node Online')">💬</div>`;
 document.body.appendChild(fab);
+
+// --- AI CHATBOT LOGIC ---
+const aiChatToggle = document.getElementById('ai-chat-toggle');
+const aiChatWindow = document.getElementById('ai-chat-window');
+const aiChatClose = document.getElementById('ai-chat-close');
+const aiChatInput = document.getElementById('ai-chat-input');
+const aiChatSend = document.getElementById('ai-chat-send');
+const aiChatMessages = document.getElementById('ai-chat-messages');
+
+function toggleAiChat() {
+    aiChatWindow.classList.toggle('hidden');
+    if (!aiChatWindow.classList.contains('hidden')) {
+        aiChatInput.focus();
+    }
+}
+
+async function sendAiMessage() {
+    const text = aiChatInput.value.trim();
+    if (!text) return;
+
+    // Add user message to UI
+    addChatMessage(text, 'user');
+    aiChatInput.value = '';
+
+    // Show typing indicator
+    const typingId = 'typing-' + Date.now();
+    const typingDiv = document.createElement('div');
+    typingDiv.id = typingId;
+    typingDiv.className = 'message ai typing-indicator';
+    typingDiv.textContent = 'Nexus AI is analyzing data...';
+    aiChatMessages.appendChild(typingDiv);
+    aiChatMessages.scrollTop = aiChatMessages.scrollHeight;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${AUTH_TOKEN}`
+            },
+            body: JSON.stringify({ 
+                message: text,
+                patient_id: activePatient ? activePatient.id : null 
+            })
+        });
+
+        const data = await response.json();
+        document.getElementById(typingId).remove();
+        
+        if (response.ok) {
+            addChatMessage(data.reply, 'ai');
+        } else {
+            addChatMessage('Error: ' + data.message, 'ai');
+        }
+    } catch (err) {
+        document.getElementById(typingId).remove();
+        addChatMessage('System error: Could not reach the AI clinical node.', 'ai');
+    }
+}
+
+function addChatMessage(text, sender) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${sender}`;
+    msgDiv.innerHTML = text.replace(/\n/g, '<br>');
+    aiChatMessages.appendChild(msgDiv);
+    aiChatMessages.scrollTop = aiChatMessages.scrollHeight;
+}
+
+aiChatToggle?.addEventListener('click', toggleAiChat);
+aiChatClose?.addEventListener('click', toggleAiChat);
+aiChatSend?.addEventListener('click', sendAiMessage);
+aiChatInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendAiMessage();
+});
+
+// Update visibility of chat widget based on login status
+function updateChatVisibility() {
+    const chatWidget = document.getElementById('ai-chat-widget');
+    if (currentUserRole && activePatient) {
+        chatWidget?.classList.remove('hidden');
+    } else {
+        chatWidget?.classList.add('hidden');
+    }
+}
+
+// Hook into switchView to update chat visibility
+const originalSwitchView = window.switchView;
+window.switchView = function(view, data) {
+    if (originalSwitchView) originalSwitchView(view, data);
+    updateChatVisibility();
+};
