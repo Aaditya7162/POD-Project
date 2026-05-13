@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 import datetime
+from datetime import timezone
 
 db = SQLAlchemy()
 
@@ -61,7 +62,7 @@ class Vital(db.Model):
     hr = db.Column(db.Integer)
     bp = db.Column(db.String(20))
     spo2 = db.Column(db.Integer)
-    timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.datetime.now(timezone.utc))
 
 class Condition(db.Model):
     __tablename__ = 'conditions'
@@ -73,9 +74,10 @@ class ClinicalActivity(db.Model):
     __tablename__ = 'clinical_activities'
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
-    date = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    date = db.Column(db.DateTime, default=lambda: datetime.datetime.now(timezone.utc))
     type = db.Column(db.String(100))
     facility = db.Column(db.String(100))
+    physician = db.Column(db.String(100))
     status = db.Column(db.String(50))
 
     def to_dict(self):
@@ -84,5 +86,6 @@ class ClinicalActivity(db.Model):
             'date': self.date.strftime('%b %d, %Y'),
             'type': self.type,
             'facility': self.facility,
+            'physician': self.physician,
             'status': self.status
         }

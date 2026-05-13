@@ -4,6 +4,7 @@ from models import db, User, Patient, Vital, Condition, ClinicalActivity
 from werkzeug.security import check_password_hash
 import jwt
 import datetime
+from datetime import timezone
 import os
 from functools import wraps
 
@@ -23,7 +24,9 @@ def token_required(f):
     def decorated(*args, **kwargs):
         token = None
         if 'Authorization' in request.headers:
-            token = request.headers['Authorization'].split(" ")[1]
+            auth_header = request.headers['Authorization']
+            if len(auth_header.split(" ")) > 1:
+                token = auth_header.split(" ")[1]
         
         if not token:
             return jsonify({'message': 'Token is missing!'}), 401
@@ -69,7 +72,7 @@ def login():
         token = jwt.encode({
             'user_id': user.id,
             'role': user.role,
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+            'exp': datetime.datetime.now(timezone.utc) + datetime.timedelta(hours=24)
         }, app.config['SECRET_KEY'], algorithm="HS256")
 
         return jsonify({
@@ -103,23 +106,33 @@ def add_patient(current_user):
 
     data = request.get_json()
     new_patient = Patient(
-        name=data['name'],
-        age=data['age'],
-        abha=data['abha'],
-        status=data['status'],
+        name=data.get('name', 'Unknown Patient'),
+        age=int(data.get('age', 0)),
+        abha=data.get('abha', '00-0000-0000-0000'),
+        status=data.get('status', 'Active'),
         height=data.get('height', '170 cm'),
         weight=data.get('weight', '70 kg'),
-        health_score=80 if data['status'] != 'Critical' else 35
+        health_score=80 if data.get('status') != 'Critical' else 35
     )
     db.session.add(new_patient)
     db.session.commit()
     
     # Add initial vital
+    try:
+        hr_val = int(data.get('hr', 75))
+    except (ValueError, TypeError):
+        hr_val = 75
+        
+    try:
+        spo2_val = int(data.get('spo2', 98))
+    except (ValueError, TypeError):
+        spo2_val = 98
+
     initial_vital = Vital(
         patient_id=new_patient.id, 
-        hr=int(data.get('hr', 75)), 
+        hr=hr_val, 
         bp=data.get('bp', "120/80"), 
-        spo2=int(data.get('spo2', 98))
+        spo2=spo2_val
     )
     db.session.add(initial_vital)
     db.session.commit()
@@ -157,12 +170,21 @@ def add_vital(current_user, id):
         
     patient = Patient.query.get_or_404(id)
     data = request.get_json()
-    
+    try:
+        hr_val = int(data.get('hr', 75))
+    except (ValueError, TypeError):
+        hr_val = 75
+        
+    try:
+        spo2_val = int(data.get('spo2', 98))
+    except (ValueError, TypeError):
+        spo2_val = 98
+
     new_vital = Vital(
         patient_id=patient.id,
-        hr=int(data.get('hr', 75)),
+        hr=hr_val,
         bp=data.get('bp', '120/80'),
-        spo2=int(data.get('spo2', 98))
+        spo2=spo2_val
     )
     db.session.add(new_vital)
     
@@ -175,4 +197,4 @@ def add_vital(current_user, id):
     return jsonify({'message': 'Vital added successfully', 'patient': patient.to_dict()}), 201
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5001)

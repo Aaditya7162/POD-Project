@@ -1,25 +1,78 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap');
 
-:root {
-    --primary: #6366f1; /* Modern Indigo */
+:root,
+[data-theme="light"] {
+    --primary: #6366f1;
     --primary-light: #e0e7ff;
     --primary-dark: #4f46e5;
-    --secondary: #14b8a6; /* Teal */
-    --accent: #f43f5e; /* Rose */
+    --secondary: #14b8a6;
+    --accent: #f43f5e;
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
     --bg-main: #fcfdff;
     --bg-card: rgba(255, 255, 255, 0.85);
+    --bg-card-solid: #ffffff;
     --text-main: #0f172a;
     --text-muted: #64748b;
-    --border: rgba(226, 232, 240, 0.6);
+    --border: rgba(226, 232, 240, 0.8);
+    --border-solid: #e2e8f0;
     --sidebar-w: 280px;
     --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
     --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
     --radius: 16px;
     --glass: rgba(255, 255, 255, 0.7);
     --glass-border: rgba(255, 255, 255, 0.3);
+    --topbar-bg: rgba(255, 255, 255, 0.6);
+    --sidebar-bg: rgba(255, 255, 255, 0.7);
+    --input-bg: #ffffff;
+    --table-row-bg: #ffffff;
+    --modal-bg: #ffffff;
+    --tag-bg: #f1f5f9;
+    --permission-bg: #f8fafc;
+    --bg-gradient-1: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%);
+    --bg-gradient-2: radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%);
+    --bg-gradient-3: radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+    --nav-active-bg: #ffffff;
+    --search-bg: #ffffff;
+    --notif-bg: #ffffff;
+    --link-card-bg: #ffffff;
+}
+
+[data-theme="dark"] {
+    --primary: #818cf8;
+    --primary-light: #1e1b4b;
+    --primary-dark: #a5b4fc;
+    --secondary: #2dd4bf;
+    --accent: #fb7185;
+    --success: #34d399;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --bg-main: #0d1117;
+    --bg-card: rgba(22, 27, 42, 0.9);
+    --bg-card-solid: #161b2a;
+    --text-main: #e2e8f0;
+    --text-muted: #94a3b8;
+    --border: rgba(51, 65, 85, 0.8);
+    --border-solid: #334155;
+    --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+    --glass: rgba(22, 27, 42, 0.8);
+    --glass-border: rgba(51, 65, 85, 0.5);
+    --topbar-bg: rgba(13, 17, 23, 0.8);
+    --sidebar-bg: rgba(22, 27, 42, 0.9);
+    --input-bg: #1e2535;
+    --table-row-bg: #161b2a;
+    --modal-bg: #1e2535;
+    --tag-bg: #1e293b;
+    --permission-bg: #1e293b;
+    --bg-gradient-1: radial-gradient(at 0% 0%, hsla(240,50%,5%,1) 0, transparent 50%);
+    --bg-gradient-2: radial-gradient(at 50% 0%, hsla(240,30%,8%,1) 0, transparent 50%);
+    --bg-gradient-3: radial-gradient(at 100% 0%, hsla(280,30%,6%,1) 0, transparent 50%);
+    --nav-active-bg: #1e293b;
+    --search-bg: #1e2535;
+    --notif-bg: #1e2535;
+    --link-card-bg: #1e293b;
 }
 
 * {
@@ -35,13 +88,11 @@ h1, h2, h3, h4, .logo span {
 
 body {
     background-color: var(--bg-main);
-    background-image: 
-        radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-        radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
-        radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+    background-image: var(--bg-gradient-1), var(--bg-gradient-2), var(--bg-gradient-3);
     background-attachment: fixed;
     color: var(--text-main);
     overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* For better color depth, let's use a subtle mesh on top of white */
@@ -63,7 +114,7 @@ body::before {
 /* Glass Sidebar */
 .sidebar {
     width: var(--sidebar-w);
-    background: var(--glass);
+    background: var(--sidebar-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-right: 1px solid var(--glass-border);
@@ -71,6 +122,7 @@ body::before {
     flex-direction: column;
     padding: 32px 0;
     z-index: 50;
+    transition: background 0.3s ease;
 }
 
 .logo {
@@ -131,7 +183,7 @@ body::before {
 
 .nav-links li.active {
     color: var(--primary-dark);
-    background: white;
+    background: var(--nav-active-bg);
     box-shadow: var(--shadow);
 }
 
@@ -182,7 +234,7 @@ body::before {
 
 .top-bar {
     height: 84px;
-    background: rgba(255, 255, 255, 0.6);
+    background: var(--topbar-bg);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -192,10 +244,11 @@ body::before {
     position: sticky;
     top: 0;
     z-index: 40;
+    transition: background 0.3s ease;
 }
 
 .search-bar {
-    background: white;
+    background: var(--search-bg);
     padding: 12px 20px;
     border-radius: 24px;
     display: flex;
@@ -230,7 +283,7 @@ body::before {
 .notifications {
     width: 40px;
     height: 40px;
-    background: white;
+    background: var(--notif-bg);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -238,6 +291,7 @@ body::before {
     cursor: pointer;
     border: 1px solid var(--border);
     transition: 0.2s;
+    color: var(--text-muted);
 }
 
 .notifications:hover {
@@ -332,11 +386,13 @@ body::before {
 }
 
 .modal {
-    background: white;
+    background: var(--modal-bg);
+    color: var(--text-main);
     border-radius: 24px;
     box-shadow: var(--shadow-lg);
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     max-width: 90vw;
+    border: 1px solid var(--border);
 }
 
 .hidden { display: none !important; }
@@ -372,13 +428,12 @@ body::before {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     background: var(--bg-main);
-    background-image: 
-        radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-        radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%);
+    background-image: var(--bg-gradient-1), var(--bg-gradient-2);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 2000;
+    transition: background-color 0.3s ease;
 }
 
 .login-card {
@@ -389,6 +444,7 @@ body::before {
     border-radius: 32px;
     width: 600px;
     box-shadow: var(--shadow-lg);
+    transition: background 0.3s ease;
 }
 
 .login-options {
@@ -398,13 +454,14 @@ body::before {
 }
 
 .login-tile {
-    background: white;
+    background: var(--bg-card-solid);
     padding: 32px;
     border-radius: 24px;
     text-align: center;
     cursor: pointer;
     transition: all 0.3s;
     border: 2px solid transparent;
+    color: var(--text-main);
 }
 
 .login-tile:hover {
@@ -440,7 +497,8 @@ body::before {
     padding: 14px 16px;
     border-radius: 12px;
     border: 1px solid var(--border);
-    background: white;
+    background: var(--input-bg);
+    color: var(--text-main);
     font-size: 1rem;
     transition: all 0.2s;
 }
@@ -490,7 +548,7 @@ body::before {
 }
 
 .tag {
-    background: #f1f5f9;
+    background: var(--tag-bg);
     padding: 6px 12px;
     border-radius: 8px;
     font-size: 0.8rem;
@@ -570,15 +628,16 @@ body.role-admin .patient-only { display: none !important; }
 /* Link Cards */
 .link-card {
     padding: 24px;
-    background: #fff;
+    background: var(--link-card-bg);
     border: 2px solid var(--border);
     border-radius: 20px;
     transition: all 0.3s;
     cursor: pointer;
+    color: var(--text-main);
 }
 
 .link-card:hover { border-color: var(--primary); transform: translateY(-4px); }
-.link-card.linked { border-color: var(--success); background: #f0fdf4; }
+.link-card.linked { border-color: var(--success); background: rgba(16, 185, 129, 0.1); }
 
 .bank-tile {
     padding: 16px;
@@ -619,6 +678,51 @@ input:checked + span { background-color: var(--success); }
 input:checked + span:before { transform: translateX(20px); }
 
 /* Toast */
+/* Theme Toggle Button */
+.theme-toggle-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--notif-bg);
+    color: var(--text-main);
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.theme-toggle-btn:hover {
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    border-color: var(--primary);
+    transform: rotate(20deg) scale(1.1);
+}
+
+/* Login screen theme toggle */
+.login-theme-btn {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: var(--glass);
+    backdrop-filter: blur(10px);
+    color: white;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 3000;
+    transition: all 0.2s;
+}
+.login-theme-btn:hover { transform: scale(1.1) rotate(20deg); }
+
 .toast {
     position: fixed;
     bottom: 40px; left: 50%;
@@ -637,4 +741,141 @@ input:checked + span:before { transform: translateX(20px); }
 
 .btn-text {
     background: none; border: none; padding: 0; color: var(--primary); cursor: pointer; font-size: inherit; font-family: inherit;
+}
+
+/* --- RESPONSIVE DESIGN --- */
+
+.sidebar-toggle-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-main);
+    cursor: pointer;
+    padding: 8px;
+    margin-right: 12px;
+}
+
+@media (max-width: 1100px) {
+    :root {
+        --sidebar-w: 240px;
+    }
+    .search-bar {
+        width: 300px;
+    }
+}
+
+@media (max-width: 900px) {
+    .app-container {
+        position: relative;
+    }
+    
+    .sidebar {
+        position: absolute;
+        left: calc(-1 * var(--sidebar-w));
+        top: 0;
+        bottom: 0;
+        transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 20px 0 50px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar.active {
+        left: 0;
+    }
+    
+    .sidebar-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .top-bar {
+        padding: 0 20px;
+    }
+    
+    .search-bar {
+        display: none; /* Hide search on small tablets */
+    }
+    
+    .dashboard-grid, .patient-app-grid {
+        grid-template-columns: 1fr !important;
+        gap: 20px !important;
+    }
+    
+    .side-column {
+        order: 2;
+    }
+    
+    .main-column {
+        order: 1;
+    }
+}
+
+@media (max-width: 600px) {
+    .view-container {
+        padding: 20px;
+    }
+    
+    .user-profile .avatar, 
+    .user-profile div[style*="flex-direction: column"] {
+        display: none;
+    }
+    
+    .top-bar {
+        height: 70px;
+    }
+    
+    .patient-hero {
+        padding: 20px !important;
+    }
+    
+    .patient-hero > div {
+        flex-direction: column;
+        align-items: center !important;
+        text-align: center;
+        gap: 20px !important;
+    }
+    
+    .stats-row {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px !important;
+    }
+    
+    .login-card {
+        width: 90vw;
+        padding: 30px;
+    }
+    
+    .login-options {
+        grid-template-columns: 1fr;
+    }
+    
+    .nexus-card {
+        width: 100%;
+        max-width: 360px;
+    }
+    
+    .modal {
+        width: 95vw !important;
+        padding: 24px !important;
+    }
+    
+    .data-table {
+        display: block;
+        overflow-x: auto;
+    }
+}
+
+/* Sidebar overlay for mobile */
+.sidebar-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(4px);
+    z-index: 45;
+    display: none;
+}
+
+.sidebar-overlay.active {
+    display: block;
 }

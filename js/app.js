@@ -2,7 +2,7 @@
 // Consolidated logic with Role-Based Access Control (RBAC) and Biometric Simulation
 
 // --- API CONFIG ---
-const API_BASE_URL = 'http://127.0.0.1:5000/api';
+const API_BASE_URL = 'http://localhost:5001/api';
 let AUTH_TOKEN = null;
 let CURRENT_USER_DATA = null;
 
@@ -26,6 +26,50 @@ let liveVitals = { hr: 75, bp: "128/84", spo2: 98 };
 
 let activePatient = null;
 let PATIENTS_LIST = [];
+
+// --- THEME LOGIC ---
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('nexus-theme', theme);
+    const icon = theme === 'dark' ? '☀️' : '🌙';
+    document.querySelectorAll('#theme-toggle-btn, #global-theme-btn').forEach(btn => {
+        if (btn) btn.textContent = icon;
+    });
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'light';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+// Apply saved theme on load
+applyTheme(localStorage.getItem('nexus-theme') || 'light');
+
+document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
+document.getElementById('global-theme-btn')?.addEventListener('click', toggleTheme);
+
+// --- MOBILE SIDEBAR LOGIC ---
+const sidebar = document.querySelector('.sidebar');
+const sidebarToggle = document.getElementById('sidebar-toggle');
+const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+function toggleSidebar() {
+    sidebar?.classList.toggle('active');
+    sidebarOverlay?.classList.toggle('active');
+}
+
+sidebarToggle?.addEventListener('click', toggleSidebar);
+sidebarOverlay?.addEventListener('click', toggleSidebar);
+
+// Close sidebar when clicking a link on mobile
+document.querySelectorAll('.nav-links li').forEach(link => {
+    link.addEventListener('click', () => {
+        if (window.innerWidth <= 900) {
+            sidebar?.classList.remove('active');
+            sidebarOverlay?.classList.remove('active');
+        }
+    });
+});
 
 // --- LOGIN LOGIC ---
 const loginScreen = document.getElementById('login-screen');
@@ -213,13 +257,43 @@ async function initDashboard(container, data = null) {
                     </div>
                 </div>
                 <div class="card">
-                    <div class="section-header" style="margin-bottom: 24px;"><h3>Clinical Activity</h3><button id="order-lab-btn" class="btn-primary" style="background: var(--primary-light); color: var(--primary-dark);">+ Order Lab</button></div>
+                    <div class="section-header" style="margin-bottom: 24px;">
+                        <h3>Clinical Activity</h3>
+                        <button id="order-lab-btn" class="btn-primary" style="background: var(--primary-light); color: var(--primary-dark);">+ Order Lab</button>
+                    </div>
                     <table class="data-table">
-                        <thead><tr><th>S.No</th><th>Date</th><th>Type</th><th>Facility</th><th>Status</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Date</th>
+                                <th>Test / Procedure</th>
+                                <th>Facility</th>
+                                <th>Physician</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            ${(patient.recentActivity || []).map((a, i) => `
-                                <tr><td>${i+1}</td><td>${a.date}</td><td>${a.type}</td><td>${a.facility}</td><td><span class="status-pill" style="background:${a.status === 'CRITICAL' ? '#fef2f2' : (a.status === 'Normal' ? '#ecfdf5' : '#f1f5f9')}; color:${a.status === 'CRITICAL' ? '#ef4444' : (a.status === 'Normal' ? '#10b981' : '#64748b')};">${a.status}</span></td></tr>
-                            `).join('')}
+                            ${(patient.recentActivity || []).length === 0
+                                ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:32px;">No clinical activity yet. Use &ldquo;+ Order Lab&rdquo; to add an entry.</td></tr>`
+                                : (patient.recentActivity || []).map((a, i) => {
+                                    const statusColors = {
+                                        'CRITICAL':  { bg: 'rgba(239,68,68,0.12)',   color: 'var(--danger)' },
+                                        'Pending':   { bg: 'rgba(245,158,11,0.12)',  color: 'var(--warning)' },
+                                        'Scheduled': { bg: 'rgba(99,102,241,0.12)',  color: 'var(--primary)' },
+                                        'Normal':    { bg: 'rgba(16,185,129,0.12)',  color: 'var(--success)' },
+                                        'Completed': { bg: 'rgba(16,185,129,0.12)',  color: 'var(--success)' },
+                                    };
+                                    const sc = statusColors[a.status] || { bg: 'rgba(100,116,139,0.12)', color: 'var(--text-muted)' };
+                                    return `<tr>
+                                        <td>${i+1}</td>
+                                        <td>${a.date}</td>
+                                        <td><strong>${a.type}</strong></td>
+                                        <td>${a.facility}</td>
+                                        <td style="color:var(--text-muted);">${a.physician || '&mdash;'}</td>
+                                        <td><span class="status-pill" style="background:${sc.bg}; color:${sc.color};">${a.status}</span></td>
+                                    </tr>`;
+                                }).join('')
+                            }
                         </tbody>
                     </table>
                 </div>
@@ -234,7 +308,7 @@ async function initDashboard(container, data = null) {
                 <div class="card">
                     <h3 style="margin-bottom: 20px;">DigiLocker Records</h3>
                     ${patient.linkedDocuments.map(doc => `
-                        <div class="doc-item" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px;">
+                        <div class="doc-item" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--permission-bg); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px;">
                             <div style="font-size: 1.2rem;">📄</div>
                             <div style="flex-grow: 1;">
                                 <div style="font-weight: 700; font-size: 0.8rem;">${doc.name}</div>
@@ -249,10 +323,10 @@ async function initDashboard(container, data = null) {
                 <div class="card">
                     <h3 style="margin-bottom: 20px;">Financial Profile</h3>
                     ${patient.bankAccounts.map(acc => `
-                        <div class="bank-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; margin-bottom: 8px;">
+                        <div class="bank-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 12px; margin-bottom: 8px;">
                             <div>
                                 <div style="font-weight: 700; font-size: 0.8rem;">${acc.bank} (****${acc.last4})</div>
-                                <div style="font-size: 0.7rem; color: #15803d;">Healthcare Spend: <strong>${acc.healthcareSpend}</strong></div>
+                                <div style="font-size: 0.7rem; color: var(--success);">Healthcare Spend: <strong>${acc.healthcareSpend}</strong></div>
                             </div>
                             <div style="font-size: 1.2rem;">💳</div>
                         </div>
@@ -340,68 +414,273 @@ function showHealthScoreBreakdown() {
 }
 
 function showOrderLabModal() {
+    const today = new Date().toISOString().split('T')[0];
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-        <div class="modal" style="width: 500px; padding: 40px; border-top: 10px solid var(--primary);">
-            <h2 style="margin-bottom: 24px; font-family: 'Outfit';">Order Lab Test</h2>
-            <div style="display: grid; gap: 16px;">
-                <div class="form-group">
-                    <label>Test Type</label>
-                    <select id="new-lab-type" style="width:100%; padding:12px; border-radius:12px; border:1px solid var(--border); background: #f8fafc; font-family: inherit;">
-                        <option value="HbA1c Screener">HbA1c Screener</option>
-                        <option value="Lipid Profile">Lipid Profile</option>
-                        <option value="Complete Blood Count">Complete Blood Count</option>
-                    </select>
+        <div class="modal" style="width:560px; padding:40px; border-top:6px solid var(--primary);">
+            <div style="display:flex; align-items:center; gap:14px; margin-bottom:28px;">
+                <div style="width:44px;height:44px;border-radius:12px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">&#x1F9EA;</div>
+                <div>
+                    <h2 style="font-family:'Outfit'; margin:0; font-size:1.3rem; color:var(--text-main);">Order Lab Test</h2>
+                    <p style="color:var(--text-muted); font-size:0.8rem; margin:0;">Patient: <strong>${activePatient?.name || 'N/A'}</strong></p>
                 </div>
             </div>
-            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px;">
+            <div style="display:grid; gap:16px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <div class="form-group" style="margin:0;">
+                        <label>Test Type *</label>
+                        <select id="new-lab-type" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--input-bg);color:var(--text-main);font-family:inherit;font-size:0.9rem;">
+                            <option value="">-- Select Test --</option>
+                            <option value="HbA1c Screener">HbA1c Screener</option>
+                            <option value="Lipid Profile">Lipid Profile</option>
+                            <option value="Complete Blood Count">Complete Blood Count</option>
+                            <option value="Liver Function Test">Liver Function Test</option>
+                            <option value="Kidney Function Test">Kidney Function Test</option>
+                            <option value="Thyroid Panel">Thyroid Panel</option>
+                            <option value="Urine Analysis">Urine Analysis</option>
+                            <option value="Blood Glucose">Blood Glucose</option>
+                            <option value="Chest X-Ray">Chest X-Ray</option>
+                            <option value="ECG">ECG</option>
+                            <option value="MRI Brain">MRI Brain</option>
+                            <option value="Ultrasound Abdomen">Ultrasound Abdomen</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Priority</label>
+                        <select id="new-lab-priority" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--input-bg);color:var(--text-main);font-family:inherit;font-size:0.9rem;">
+                            <option value="Routine">Routine</option>
+                            <option value="Urgent">Urgent</option>
+                            <option value="STAT">STAT (Emergency)</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <div class="form-group" style="margin:0;">
+                        <label>Ordering Facility</label>
+                        <select id="new-lab-facility" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--input-bg);color:var(--text-main);font-family:inherit;font-size:0.9rem;">
+                            <option value="Apollo Hospitals">Apollo Hospitals</option>
+                            <option value="Max Healthcare">Max Healthcare</option>
+                            <option value="AIIMS New Delhi">AIIMS New Delhi</option>
+                            <option value="Nexus Diagnostics">Nexus Diagnostics</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Scheduled Date</label>
+                        <input type="date" id="new-lab-date" value="${today}" style="padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--input-bg);color:var(--text-main);font-family:inherit;font-size:0.9rem;width:100%;">
+                    </div>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label>Ordering Physician</label>
+                    <input type="text" id="new-lab-physician" placeholder="e.g. Dr. Rajesh Gupta" style="padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--input-bg);color:var(--text-main);font-family:inherit;font-size:0.9rem;width:100%;">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label>Clinical Notes / Indication</label>
+                    <textarea id="new-lab-notes" placeholder="e.g. Patient reports fatigue, elevated glucose..." rows="3" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--input-bg);color:var(--text-main);font-family:inherit;font-size:0.9rem;resize:vertical;"></textarea>
+                </div>
+            </div>
+            <div id="lab-error-msg" style="display:none;margin-top:12px;padding:10px 14px;border-radius:10px;font-size:0.85rem;"></div>
+            <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:24px; border-top:1px solid var(--border); padding-top:20px;">
                 <button class="btn-text" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-                <button class="btn-primary" id="confirm-lab-btn">Order Test</button>
+                <button class="btn-primary" id="confirm-lab-btn">&#x1F9EA; Place Order</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
-    
+
     modal.querySelector('#confirm-lab-btn').addEventListener('click', () => {
         const testType = document.getElementById('new-lab-type').value;
-        const recentTests = activePatient.recentActivity.map(a => a.type);
-        
-        if (recentTests.includes(testType)) {
-            modal.innerHTML = `
-                <div class="modal" style="border-top: 10px solid var(--warning); width: 550px; padding: 40px;">
-                    <h2 style="color:var(--warning);">Redundant Order Detection</h2>
-                    <p style="margin: 20px 0;">Duplicate ${testType} detected in recent history.</p>
-                    <div style="display: flex; justify-content: flex-end; gap: 16px;">
-                        <button class="btn-text" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-                        <button class="btn-primary" style="background:var(--warning); color:#000;" onclick="this.closest('.modal-overlay').remove(); alert('Order Proceeded!');">Proceed Anyway</button>
-                    </div>
-                </div>
-            `;
-        } else {
-            modal.remove();
-            alert('Lab Ordered Successfully!');
+        const priority = document.getElementById('new-lab-priority').value;
+        const facility = document.getElementById('new-lab-facility').value;
+        const date = document.getElementById('new-lab-date').value;
+        const physician = document.getElementById('new-lab-physician').value.trim();
+        const notes = document.getElementById('new-lab-notes').value.trim();
+        const errorEl = document.getElementById('lab-error-msg');
+
+        if (!testType) {
+            errorEl.textContent = 'Please select a test type before placing the order.';
+            errorEl.style.display = 'block';
+            errorEl.style.background = 'rgba(239,68,68,0.1)';
+            errorEl.style.border = '1px solid rgba(239,68,68,0.3)';
+            errorEl.style.color = 'var(--danger)';
+            return;
         }
+
+        const existingTypes = (activePatient.recentActivity || []).map(a => a.type);
+        if (existingTypes.includes(testType)) {
+            errorEl.innerHTML = `&#x26A0; <strong>${testType}</strong> already in recent activity. <a href="#" id="proceed-lab-link" style="color:var(--warning);text-decoration:underline;cursor:pointer;">Proceed anyway?</a>`;
+            errorEl.style.display = 'block';
+            errorEl.style.background = 'rgba(245,158,11,0.1)';
+            errorEl.style.border = '1px solid rgba(245,158,11,0.3)';
+            errorEl.style.color = 'var(--warning)';
+            document.getElementById('proceed-lab-link').addEventListener('click', (e) => {
+                e.preventDefault();
+                placeLabOrder(modal, testType, priority, facility, date, physician, notes);
+            });
+            return;
+        }
+        placeLabOrder(modal, testType, priority, facility, date, physician, notes);
     });
 }
 
+function placeLabOrder(modal, testType, priority, facility, date, physician, notes) {
+    const statusMap = { 'STAT': 'CRITICAL', 'Urgent': 'Pending', 'Routine': 'Scheduled' };
+    const newEntry = {
+        date: date,
+        type: testType,
+        facility: facility,
+        status: statusMap[priority] || 'Scheduled',
+        physician: physician || 'Dr. (System)',
+        notes: notes || ''
+    };
+    if (!activePatient.recentActivity) activePatient.recentActivity = [];
+    activePatient.recentActivity.unshift(newEntry);
+    modal.remove();
+    showToast('Lab ordered: ' + testType + ' at ' + facility);
+    switchView('dashboard', activePatient);
+}
+
 // --- VIEW: STANDARDIZER ---
+// --- VIEW: STANDARDIZER (DATA CENTER) ---
 function initStandardizer(container) {
-    container.innerHTML = `<div class="card" style="padding:100px; text-align:center;"><h2>AI Standardizer Portal</h2><p style="color:var(--text-muted);">Drop files to convert to FHIR</p></div>`;
+    container.innerHTML = `
+        <div class="view-animate">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+                <div>
+                    <h1 style="margin:0;">AI Data Standardizer</h1>
+                    <p style="color:var(--text-muted); margin:4px 0 0 0;">Convert legacy clinical data to FHIR R4 standard</p>
+                </div>
+                <div style="display:flex; gap:12px;">
+                    <div class="tag" style="background:var(--success); color:#fff; border:none;">● Engine Online</div>
+                    <div class="tag">Mapping: ICD-10-CM</div>
+                </div>
+            </div>
+
+            <div class="card" style="padding:60px; border: 2px dashed var(--border); background:var(--glass); text-align:center; margin-bottom:32px;">
+                <div style="font-size:3rem; margin-bottom:20px;">📂</div>
+                <h3 style="margin-bottom:12px;">Drag & Drop Clinical Records</h3>
+                <p style="color:var(--text-muted); margin-bottom:24px;">Upload PDF, HL7, or DICOM files to begin automated FHIR transformation</p>
+                <button class="btn-primary" onclick="simulateFileUpload()">Browse Files</button>
+                <div id="upload-progress-container" style="display:none; width:400px; margin:32px auto 0 auto;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:8px;">
+                        <span id="upload-status-text">Parsing HL7 Segment...</span>
+                        <span id="upload-percent">45%</span>
+                    </div>
+                    <div style="height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
+                        <div id="upload-bar" style="width:45%; height:100%; background:var(--primary); transition:width 0.3s ease;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom:24px;">Recent Transformations</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>ID</th><th>Source File</th><th>Format</th><th>Entities Identified</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>#8821</td><td>discharge_summary_v2.pdf</td><td><span class="tag">PDF</span></td><td>12 ICD, 4 LOINC</td><td><span class="status-pill" style="background:rgba(16,185,129,0.1); color:var(--success);">Standardized</span></td></tr>
+                        <tr><td>#8819</td><td>lab_results_apollo.hl7</td><td><span class="tag">HL7</span></td><td>18 LOINC</td><td><span class="status-pill" style="background:rgba(16,185,129,0.1); color:var(--success);">Standardized</span></td></tr>
+                        <tr><td>#8815</td><td>ct_scan_brain.dcm</td><td><span class="tag">DICOM</span></td><td>Imaging Metadata</td><td><span class="status-pill" style="background:rgba(245,158,11,0.1); color:var(--warning);">Mapping Check</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function simulateFileUpload() {
+    const container = document.getElementById('upload-progress-container');
+    const bar = document.getElementById('upload-bar');
+    const percentText = document.getElementById('upload-percent');
+    const statusText = document.getElementById('upload-status-text');
+    
+    container.style.display = 'block';
+    let p = 0;
+    const statuses = ["Reading file...", "Identifying entities...", "Mapping to FHIR R4...", "Signing hash...", "Success!"];
+    
+    const interval = setInterval(() => {
+        p += 5;
+        if (p > 100) {
+            clearInterval(interval);
+            showToast("Record Standardized Successfully!");
+            setTimeout(() => container.style.display = 'none', 1000);
+            return;
+        }
+        bar.style.width = p + '%';
+        percentText.textContent = p + '%';
+        statusText.textContent = statuses[Math.floor((p/101)*statuses.length)];
+    }, 100);
 }
 
 // --- VIEW: TIMELINE ---
+// --- VIEW: TIMELINE (TRANSPARENCY & HISTORY) ---
 function initTimeline(container) {
     container.innerHTML = `
-        <div class="card" style="padding: 40px;">
-            <h2 style="margin-bottom:32px;">Transparency & History</h2>
-            <div class="timeline" style="margin-bottom:48px;">
-                <div class="timeline-item"><h4>Max Labs</h4><p>Lipid Profile processed via UHI.</p></div>
-                <div class="timeline-item emergency"><h4>AIIMS Trauma</h4><p>Emergency chart access node activated.</p></div>
+        <div class="view-animate">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+                <div>
+                    <h1 style="margin:0;">Audit & Transparency</h1>
+                    <p style="color:var(--text-muted); margin:4px 0 0 0;">Immutable ledger of all clinical data interactions</p>
+                </div>
+                <button class="btn-primary" style="background:var(--primary-light); color:var(--primary-dark);">Download Full Audit Trail</button>
             </div>
-            <h3>🛡️ Audit Ledger</h3>
-            <div style="display:grid; gap:12px; margin-top:20px;">
-                ${PATIENT_DATA.auditLogs.map(log => `<div style="padding:16px; background:#f8fafc; border-radius:12px; display:flex; justify-content:space-between; font-size:0.8rem; border:1px solid var(--border);"><div><strong>${log.clinician}</strong> &bull; ${log.action}</div><div style="font-family:monospace;">${log.hash}</div></div>`).join('')}
+
+            <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:32px; align-items:start;">
+                <div class="card">
+                    <h3 style="margin-bottom:28px;">Recent Access Events</h3>
+                    <div class="timeline-v2">
+                        <div class="timeline-v2-item verified">
+                            <div class="t-icon">✅</div>
+                            <div class="t-content">
+                                <h4>Data Sync Complete</h4>
+                                <p>Successfully synced 4 immunization records from DigiLocker (MoHFW).</p>
+                                <span class="t-time">Today, 11:45 AM</span>
+                            </div>
+                        </div>
+                        <div class="timeline-v2-item alert">
+                            <div class="t-icon">🚨</div>
+                            <div class="t-content">
+                                <h4>Break the Glass Activated</h4>
+                                <p><strong>Dr. Sarah Mitchell</strong> accessed records at AIIMS Trauma Center. Emergency override confirmed.</p>
+                                <span class="t-time">Yesterday, 10:30 PM</span>
+                            </div>
+                        </div>
+                        <div class="timeline-v2-item access">
+                            <div class="t-icon">🔍</div>
+                            <div class="t-content">
+                                <h4>Routine Chart Review</h4>
+                                <p><strong>Dr. Rajesh Gupta</strong> accessed the Diabetes Management dashboard at Apollo Hospital.</p>
+                                <span class="t-time">Oct 24, 2:15 PM</span>
+                            </div>
+                        </div>
+                        <div class="timeline-v2-item consent">
+                            <div class="t-icon">📝</div>
+                            <div class="t-content">
+                                <h4>Consent Granted</h4>
+                                <p>Patient authorized Max Healthcare to access historical imaging records for 30 days.</p>
+                                <span class="t-time">Oct 23, 9:00 AM</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 style="margin-bottom:20px;">🛡️ Blockchain Ledger</h3>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:24px;">All events are cryptographically hashed and verified on the Nexus Private Ledger.</p>
+                    <div style="display:grid; gap:12px;">
+                        ${PATIENT_DATA.auditLogs.map(log => `
+                            <div style="padding:14px; background:var(--permission-bg); border-radius:12px; border:1px solid var(--border);">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                    <span style="font-weight:700; font-size:0.8rem;">${log.clinician}</span>
+                                    <span style="color:var(--primary); font-family:monospace; font-size:0.7rem;">#${Math.random().toString(16).substr(2, 6)}</span>
+                                </div>
+                                <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:10px;">${log.action} &bull; ${log.facility}</div>
+                                <div style="font-family:monospace; font-size:0.65rem; color:var(--text-muted); background:var(--input-bg); padding:6px; border-radius:6px; word-break:break-all;">HASH: ${log.hash}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -412,13 +691,93 @@ function renderTimelineStyles() {
     if (document.getElementById('timeline-styles')) return;
     const s = document.createElement('style');
     s.id = 'timeline-styles';
-    s.textContent = `.timeline { position: relative; padding-left: 32px; border-left: 2px solid var(--border); } .timeline-item { margin-bottom: 32px; position: relative; } .timeline-item::after { content: ''; position: absolute; left: -39px; top: 0; width: 12px; height: 12px; background: #fff; border: 3px solid var(--primary); border-radius: 50%; } .timeline-item.emergency::after { border-color: var(--danger); background: var(--danger); }`;
+    s.textContent = `
+        .timeline-v2 { position: relative; padding-left: 20px; }
+        .timeline-v2::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--border); }
+        .timeline-v2-item { position: relative; padding-bottom: 32px; padding-left: 24px; }
+        .timeline-v2-item::after { content: ''; position: absolute; left: -24px; top: 0; width: 10px; height: 100%; background: transparent; }
+        .t-icon { position: absolute; left: -32px; top: 0; width: 24px; height: 24px; background: var(--bg-card-solid); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; border: 2px solid var(--border); z-index: 2; }
+        .timeline-v2-item.verified .t-icon { border-color: var(--success); }
+        .timeline-v2-item.alert .t-icon { border-color: var(--danger); background: rgba(239,68,68,0.1); }
+        .timeline-v2-item h4 { margin: 0 0 4px 0; font-size: 1rem; }
+        .timeline-v2-item p { margin: 0; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+        .t-time { display: block; margin-top: 8px; font-size: 0.75rem; font-weight: 700; color: var(--primary); text-transform: uppercase; }
+    `;
     document.head.appendChild(s);
 }
 
 // --- VIEW: PRIOR AUTH ---
+// --- VIEW: PRIOR AUTH (INSURANCE GATEWAY) ---
 function initPriorAuth(container) {
-    container.innerHTML = `<div class="card" style="padding:100px; text-align:center;"><h2>Prior Authorization Control</h2><p>HDFC ERGO / Star Health Integrated</p></div>`;
+    container.innerHTML = `
+        <div class="view-animate">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+                <div>
+                    <h1 style="margin:0;">Prior Authorization</h1>
+                    <p style="color:var(--text-muted); margin:4px 0 0 0;">Unified gateway for Indian insurance adjudication</p>
+                </div>
+                <button class="btn-primary" onclick="showToast('Insurance Portal Synced!')">+ New Request</button>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:24px; margin-bottom:32px;">
+                <div class="card" style="padding:24px; text-align:center;">
+                    <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">Avg. Approval Time</div>
+                    <div style="font-size:1.8rem; font-weight:800; color:var(--success);">14.2 Min</div>
+                    <div style="font-size:0.7rem; color:var(--success); margin-top:4px;">⬇ 12% from last month</div>
+                </div>
+                <div class="card" style="padding:24px; text-align:center;">
+                    <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">Auto-Approved (AI)</div>
+                    <div style="font-size:1.8rem; font-weight:800; color:var(--primary);">88.4%</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">Across all partner insurers</div>
+                </div>
+                <div class="card" style="padding:24px; text-align:center;">
+                    <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">Pending Review</div>
+                    <div style="font-size:1.8rem; font-weight:800; color:var(--warning);">12 Cases</div>
+                    <div style="font-size:0.7rem; color:var(--danger); margin-top:4px;">3 STAT cases requires action</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                    <h3>Active Authorization Requests</h3>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" placeholder="Search requests..." style="padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--input-bg); color:var(--text-main); font-size:0.8rem;">
+                    </div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Req ID</th><th>Patient</th><th>Procedure</th><th>Insurer</th><th>AI Check</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>#PA-992</td>
+                            <td>Arjun Sharma</td>
+                            <td>MRI Brain (Contrast)</td>
+                            <td>HDFC ERGO</td>
+                            <td><span style="color:var(--success);">✅ Verified</span></td>
+                            <td><span class="status-pill" style="background:rgba(16,185,129,0.1); color:var(--success);">Approved</span></td>
+                        </tr>
+                        <tr>
+                            <td>#PA-985</td>
+                            <td>Priya Patel</td>
+                            <td>Knee Replacement</td>
+                            <td>Star Health</td>
+                            <td><span style="color:var(--warning);">⌛ Manual Review</span></td>
+                            <td><span class="status-pill" style="background:rgba(245,158,11,0.1); color:var(--warning);">Pending</span></td>
+                        </tr>
+                        <tr>
+                            <td>#PA-981</td>
+                            <td>Rahul Verma</td>
+                            <td>Cardiac Stenting</td>
+                            <td>ICICI Lombard</td>
+                            <td><span style="color:var(--success);">✅ Verified</span></td>
+                            <td><span class="status-pill" style="background:rgba(16,185,129,0.1); color:var(--success);">Approved</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
 }
 
 // --- VIEW: PATIENT LIST (ADMIN ONLY) ---
@@ -521,7 +880,7 @@ function showPatientQRModal(id, name) {
         <div class="modal" style="width: 400px; padding: 40px; text-align: center;">
             <h2 style="margin-bottom: 8px; font-family: 'Outfit';">${name}</h2>
             <p style="color: var(--text-muted); margin-bottom: 24px;">Scan to open patient dashboard</p>
-            <div id="qr-code-container" style="display: flex; justify-content: center; align-items: center; margin: 0 auto 32px auto; padding: 16px; background: white; border-radius: 16px; border: 1px solid var(--border); width: 180px; height: 180px;"></div>
+            <div id="qr-code-container" style="display: flex; justify-content: center; align-items: center; margin: 0 auto 32px auto; padding: 16px; background: var(--bg-card-solid); border-radius: 16px; border: 1px solid var(--border); width: 180px; height: 180px;"></div>
             <button class="btn-primary" style="width: 100%;" onclick="this.closest('.modal-overlay').remove()">Close</button>
         </div>
     `;
@@ -678,12 +1037,28 @@ function initCardScanner() {
 }
 
 // --- VIEW: PATIENT APP ---
-function initPatientApp(container) {
-    const patient = PATIENTS_LIST[0]; // Simulation for current patient
+async function initPatientApp(container, data = null) {
+    // Use passed data, or fetch real patient data for logged-in patients
+    let patient = data;
+    if (!patient && CURRENT_USER_DATA && CURRENT_USER_DATA.patient_id) {
+        container.innerHTML = '<div style="padding:40px; color:var(--text-muted);">Loading your health portal...</div>';
+        try {
+            const resp = await fetch(`${API_BASE_URL}/patients/${CURRENT_USER_DATA.patient_id}`, {
+                headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
+            });
+            if (resp.ok) {
+                patient = await resp.json();
+                // Keep PATIENTS_LIST in sync so admin sees same data
+                const idx = PATIENTS_LIST.findIndex(p => p.id === patient.id);
+                if (idx >= 0) PATIENTS_LIST[idx] = patient;
+            }
+        } catch(e) { console.warn('Could not fetch patient data:', e); }
+    }
+    if (!patient) patient = PATIENTS_LIST[0]; // fallback for admin preview
     container.innerHTML = `
         <div class="patient-app-grid" style="display: grid; grid-template-columns: 1fr 400px; gap: 40px; align-items: start;">
             <div class="main-controls">
-                <div class="card" style="background: linear-gradient(135deg, #fff 0%, #f8fafc 100%);">
+                <div class="card" style="background: var(--bg-card);">
                     <h2 style="margin-bottom: 24px;">Data Governance</h2>
                     <p style="color: var(--text-muted); margin-bottom: 32px;">Manage who can access your healthcare records and link external providers.</p>
                     
@@ -705,7 +1080,7 @@ function initPatientApp(container) {
                     <div style="margin-top: 40px;">
                         <h4 style="margin-bottom: 16px;">Active Provider Consents</h4>
                         ${PATIENT_DATA.providers.map(p => `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #fff; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--bg-card-solid); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 8px;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
                                     <div class="source-icon ${p.color}" style="width: 32px; height: 32px; font-size: 0.7rem;">${p.name[0]}</div>
                                     <div>
@@ -735,7 +1110,7 @@ function initPatientApp(container) {
                             <div class="name">${patient.name}</div>
                             <div class="abha">${patient.abha}</div>
                         </div>
-                        <div class="qr-code" style="display: flex; justify-content: center; align-items: center; background: white;">
+                        <div class="qr-code" style="display: flex; justify-content: center; align-items: center; background: var(--bg-card-solid);">
                             <div id="patient-app-qr-container"></div>
                         </div>
                     </div>
@@ -780,17 +1155,17 @@ function simulateDigiLockerLinking() {
             </div>
             <div class="form-group">
                 <label>Aadhaar Number / ABHA ID</label>
-                <input type="text" value="91-2204-1102-4421" disabled style="background: #f1f5f9;">
+                <input type="text" value="91-2204-1102-4421" disabled style="background: var(--tag-bg); color: var(--text-muted); border: 1px solid var(--border);">
             </div>
             <div class="form-group">
                 <label>Enter OTP sent to +91 ******4210</label>
                 <div style="display: flex; gap: 12px;">
-                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700;">
-                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700;">
-                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700;">
-                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700;">
-                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700;">
-                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700;">
+                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700; background: var(--input-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; width: 40px; height: 50px;">
+                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700; background: var(--input-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; width: 40px; height: 50px;">
+                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700; background: var(--input-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; width: 40px; height: 50px;">
+                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700; background: var(--input-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; width: 40px; height: 50px;">
+                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700; background: var(--input-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; width: 40px; height: 50px;">
+                    <input type="text" maxlength="1" style="text-align: center; font-weight: 700; background: var(--input-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; width: 40px; height: 50px;">
                 </div>
             </div>
             <button class="btn-primary" style="width: 100%; margin-top: 24px;" id="verify-dl-btn">Verify & Link</button>
@@ -907,7 +1282,7 @@ function renderDashboardStyles() {
         .stat-val { font-weight: 700; font-size: 1.1rem; }
         .data-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; margin-top: 16px; }
         .data-table th { text-align: left; padding: 12px 24px; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); }
-        .data-table td { padding: 16px 24px; background: white; font-size: 0.95rem; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .data-table td { padding: 16px 24px; background: var(--table-row-bg); color: var(--text-main); font-size: 0.95rem; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); vertical-align: middle; }
         .data-table td:first-child { border-left: 1px solid var(--border); border-top-left-radius: 12px; border-bottom-left-radius: 12px; }
         .data-table td:last-child { border-right: 1px solid var(--border); border-top-right-radius: 12px; border-bottom-right-radius: 12px; }
         .source-item { display:flex; align-items:center; padding:12px; background:rgba(255,255,255,0.5); border-radius:12px; margin-bottom:12px; border:1px solid var(--border); }
