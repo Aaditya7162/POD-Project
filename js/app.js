@@ -2,7 +2,7 @@
 // Consolidated logic with Role-Based Access Control (RBAC) and Biometric Simulation
 
 // --- API CONFIG ---
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = window.location.origin + '/api';
 let AUTH_TOKEN = null;
 let CURRENT_USER_DATA = null;
 
