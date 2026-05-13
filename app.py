@@ -12,11 +12,31 @@ app = Flask(__name__, static_folder='.')
 CORS(app)
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+# Support Vercel Postgres or other remote databases
+database_url = os.environ.get('DATABASE_URL', 'sqlite:///database.db')
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'nexus_health_super_secret_key_2026'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'nexus_health_super_secret_key_2026')
 
 db.init_app(app)
+
+# Create tables and seed if empty (Useful for initial deployment)
+with app.app_context():
+    db.create_all()
+    # Check if we need to seed
+    if not User.query.filter_by(username='dr.gupta@nexus.ai').first():
+        try:
+            from init_db import init_db
+            # Note: init_db in its current form drops all tables, 
+            # which might be dangerous in production. 
+            # For a quick deployment, we'll just ensure tables exist.
+            # If the user wants to seed, they should run init_db.py manually or we can trigger a safe seed here.
+            pass 
+        except ImportError:
+            pass
 
 # Authentication Decorator
 def token_required(f):
