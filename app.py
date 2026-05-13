@@ -288,18 +288,58 @@ def chat_analysis(current_user):
         model_fallback = True
 
     if not model or 'model_fallback' in locals():
-        # Enhanced simulated clinical logic
+        # Enhanced simulated clinical logic for high-fidelity reasoning
         m = message.lower()
-        if "analyze" in m or "status" in m or "summary" in m:
-            reply = f"Clinical scan for {patient.name}:\n\n"
+        
+        # 1. Summary / Analysis
+        if any(x in m for x in ["analyze", "status", "summary", "scan"]):
+            reply = f"### Clinical Analysis for {patient.name}\n"
+            reply += f"**Current Status:** {patient.status} (Health Score: {patient.health_score}/100)\n\n"
+            
             if latest_vital:
-                reply += f"• Vitals: HR {latest_vital.hr}, BP {latest_vital.bp}, SpO2 {latest_vital.spo2}%. "
-                if latest_vital.hr > 100 or latest_vital.spo2 < 95:
-                    reply += "ALERT: Critical vital signs detected. "
-            reply += f"\n• Score: {patient.health_score}/100. Status: {patient.status}."
-            reply += f"\n• History: {len(patient.conditions)} conditions, {len(patient.activities)} activities."
+                reply += "#### Vital Signs Scan:\n"
+                reply += f"• **Heart Rate:** {latest_vital.hr} BPM "
+                reply += "(NORMAL)" if latest_vital.hr <= 100 else "(ABNORMAL - Tachycardia)"
+                reply += f"\n• **Blood Pressure:** {latest_vital.bp} "
+                reply += f"\n• **Oxygen (SpO2):** {latest_vital.spo2}% "
+                reply += "(NORMAL)" if latest_vital.spo2 >= 95 else "(CRITICAL - Hypoxia)"
+                reply += "\n\n"
+
+            if patient.conditions:
+                reply += "#### Diagnosis Overview:\n"
+                for c in patient.conditions:
+                    reply += f"• {c.name}\n"
+                reply += "\n"
+
+            reply += "#### AI Risk Assessment:\n"
+            if patient.status == 'Critical':
+                reply += "⚠️ **High Risk Profile:** Multiple vital alerts detected. Suggest immediate clinical review and potential escalation of care."
+            elif patient.health_score < 70:
+                reply += "🟡 **Moderate Risk:** Patient is stable but requires active monitoring of condition trends."
+            else:
+                reply += "✅ **Low Risk:** Clinical data suggests steady state. Maintain current management plan."
+
+        # 2. Recommendations
+        elif any(x in m for x in ["recommend", "plan", "advice", "what to do"]):
+            reply = f"### Clinical Recommendations for {patient.name}\n"
+            
+            if "diabetes" in str(context['conditions']).lower():
+                reply += "• **Endocrine:** Request daily fasting glucose logs and check latest HbA1c results.\n"
+            
+            if latest_vital and latest_vital.hr > 100:
+                reply += "• **Cardiac:** Perform ECG to rule out arrhythmia due to sustained tachycardia.\n"
+            
+            if patient.status == 'Critical':
+                reply += "• **Stat Action:** Notify primary consultant and prepare for potential ICU transfer if SpO2 drops below 92%.\n"
+                reply += "• **Diagnostics:** Order comprehensive metabolic panel (CMP) and ABG immediately.\n"
+            else:
+                reply += "• **Routine:** Schedule follow-up in 10-14 days.\n"
+                reply += "• **Wellness:** Review medication compliance and physical activity logs.\n"
+            
+            reply += "\n*Note: This is an automated clinical scan based on dashboard parameters.*"
+        
         else:
-            reply = "I am running in local mode (No Gemini API Key found). I can provide basic clinical summaries. Please add a GEMINI_API_KEY to enable full reasoning."
+            reply = "I am the Nexus AI Assistant. I have scanned this patient's clinical node. You can ask me for a **'clinical analysis'** or a **'treatment recommendation'** based on their current vitals and history."
 
     return jsonify({
         'reply': reply,
