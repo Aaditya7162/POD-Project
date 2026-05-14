@@ -7,6 +7,10 @@ import datetime
 from datetime import timezone
 import os
 from functools import wraps
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__, static_folder='.')
 CORS(app)

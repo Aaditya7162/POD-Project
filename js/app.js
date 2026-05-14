@@ -1187,30 +1187,80 @@ function simulateBankLinking() {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-        <div class="modal" style="width: 450px; padding: 40px;">
+        <div class="modal" style="width: 500px; padding: 40px;">
             <div style="text-align: center; margin-bottom: 32px;">
                 <div style="font-size: 3rem; margin-bottom: 16px;">🏦</div>
                 <h2>Link Bank Account</h2>
-                <p style="color: var(--text-muted);">Select your bank to sync healthcare spending</p>
+                <p style="color: var(--text-muted);">Select your bank and enter account details</p>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
-                <div class="bank-tile">HDFC BANK</div>
-                <div class="bank-tile">ICICI BANK</div>
-                <div class="bank-tile">SBI</div>
-                <div class="bank-tile">AXIS BANK</div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;" id="bank-tiles">
+                <div class="bank-tile" data-bank="HDFC BANK">HDFC BANK</div>
+                <div class="bank-tile" data-bank="ICICI BANK">ICICI BANK</div>
+                <div class="bank-tile" data-bank="SBI">SBI</div>
+                <div class="bank-tile" data-bank="AXIS BANK">AXIS BANK</div>
             </div>
-            <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 24px;">By clicking continue, you agree to share your transaction history related to health services with Nexus Health for unified billing insights.</p>
-            <button class="btn-primary" style="width: 100%;" id="confirm-bank-btn">Authorize via UPI/Netbanking</button>
+
+            <div id="bank-details-area" style="display: grid; gap: 16px; margin-bottom: 24px;">
+                <div class="form-group">
+                    <label>Account Holder Name</label>
+                    <input type="text" id="acc-name" placeholder="As per bank records">
+                </div>
+                <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label>Account Number</label>
+                        <input type="text" id="acc-num" placeholder="XXXX XXXX XXXX">
+                    </div>
+                    <div class="form-group">
+                        <label>IFSC Code</label>
+                        <input type="text" id="acc-ifsc" placeholder="HDFC0001234">
+                    </div>
+                </div>
+            </div>
+
+            <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 24px;">By clicking authorize, you agree to share your transaction history related to health services with Nexus Health for unified billing insights.</p>
+            
+            <button class="btn-primary" style="width: 100%;" id="confirm-bank-btn">Authorize via Secure Link</button>
             <button class="btn-text" style="width: 100%; margin-top: 12px;" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
         </div>
     `;
     document.body.appendChild(modal);
+
+    let selectedBank = null;
+    const tiles = modal.querySelectorAll('.bank-tile');
+    tiles.forEach(tile => {
+        tile.addEventListener('click', () => {
+            tiles.forEach(t => {
+                t.style.borderColor = 'var(--border)';
+                t.style.background = 'none';
+                t.style.color = 'var(--text-main)';
+            });
+            tile.style.borderColor = 'var(--primary)';
+            tile.style.background = 'var(--primary-light)';
+            tile.style.color = 'var(--primary-dark)';
+            selectedBank = tile.dataset.bank;
+        });
+    });
+
     modal.querySelector('#confirm-bank-btn').addEventListener('click', () => {
-        modal.querySelector('#confirm-bank-btn').textContent = 'Linking Account...';
+        const name = modal.querySelector('#acc-name').value;
+        const num = modal.querySelector('#acc-num').value;
+        const ifsc = modal.querySelector('#acc-ifsc').value;
+
+        if (!selectedBank) return alert('Please select a bank first');
+        if (!name || !num || !ifsc) return alert('Please fill in all account details');
+
+        const btn = modal.querySelector('#confirm-bank-btn');
+        btn.textContent = 'Verifying with ' + selectedBank + '...';
+        btn.disabled = true;
+
         setTimeout(() => {
-            modal.remove();
-            showToast('Bank account linked successfully!');
-            switchView('patient-app');
+            btn.textContent = 'Linking Account...';
+            setTimeout(() => {
+                modal.remove();
+                showToast('Bank account linked successfully!');
+                switchView('patient-app');
+            }, 1500);
         }, 1500);
     });
 }
