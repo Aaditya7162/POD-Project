@@ -1,7 +1,10 @@
 // Nexus Medical Portal - Unified Healthcare Operating System
 // Core Application Logic
 
-const API_BASE_URL = window.location.origin + '/api';
+let API_BASE_URL = window.location.origin + '/api';
+if (window.location.port === '5500') {
+    API_BASE_URL = 'http://127.0.0.1:5002/api';
+}
 let AUTH_TOKEN = localStorage.getItem('nexus_token');
 let CURRENT_USER = JSON.parse(localStorage.getItem('nexus_user'));
 let html5QrCode = null;
