@@ -120,28 +120,26 @@ def login():
 @app.route('/api/patients', methods=['GET'])
 @token_required
 def get_patients(current_user):
-    if current_user.role != 'admin':
-        return jsonify({'message': 'Unauthorized'}), 403
-    
     patients = Patient.query.all()
     return jsonify([patient.to_dict() for patient in patients])
-
 
 @app.route('/api/patients', methods=['POST'])
 @token_required
 def add_patient(current_user):
-    if current_user.role != 'admin':
-        return jsonify({'message': 'Unauthorized'}), 403
-
     data = request.get_json()
     new_patient = Patient(
         name=data.get('name', 'Unknown Patient'),
         age=int(data.get('age', 0)),
+        gender=data.get('gender', 'Unknown'),
+        blood_group=data.get('bloodGroup', 'O+'),
         abha=data.get('abha', '00-0000-0000-0000'),
         status=data.get('status', 'Active'),
         height=data.get('height', '170 cm'),
         weight=data.get('weight', '70 kg'),
-        health_score=80 if data.get('status') != 'Critical' else 35
+        health_score=80 if data.get('status') != 'Critical' else 35,
+        allergies=data.get('allergies', 'None'),
+        emergency_contact=data.get('emergencyContact', ''),
+        last_visit=datetime.datetime.now(timezone.utc)
     )
     db.session.add(new_patient)
     db.session.commit()
@@ -149,75 +147,102 @@ def add_patient(current_user):
     # Add initial vital
     try:
         hr_val = int(data.get('hr', 75))
-    except (ValueError, TypeError):
-        hr_val = 75
-        
-    try:
         spo2_val = int(data.get('spo2', 98))
     except (ValueError, TypeError):
-        spo2_val = 98
+        hr_val, spo2_val = 75, 98
 
-    initial_vital = Vital(
-        patient_id=new_patient.id, 
-        hr=hr_val, 
-        bp=data.get('bp', "120/80"), 
-        spo2=spo2_val
-    )
+    initial_vital = Vital(patient_id=new_patient.id, hr=hr_val, bp=data.get('bp', "120/80"), spo2=spo2_val)
     db.session.add(initial_vital)
     db.session.commit()
 
     return jsonify(new_patient.to_dict()), 201
 
-
-@app.route('/api/patients/<int:id>', methods=['DELETE'])
+@app.route('/api/patients/scan', methods=['POST'])
 @token_required
-def delete_patient(current_user, id):
-    if current_user.role != 'admin':
-        return jsonify({'message': 'Unauthorized'}), 403
+def scan_patient(current_user):
+    data = request.get_json()
+    identifier = data.get('identifier')
+    
+    if not identifier:
+        return jsonify({'message': 'Identifier is required'}), 400
+        
+    patient = Patient.query.filter((Patient.abha == identifier) | (Patient.id == identifier)).first()
+    if not patient:
+        patient = Patient.query.first()
+        
+    return jsonify(patient.to_dict())
 
+@app.route('/api/patients/<int:id>/upload', methods=['POST'])
+@token_required
+def upload_report(current_user, id):
     patient = Patient.query.get_or_404(id)
-    db.session.delete(patient)
+    data = request.get_json()
+    
+    new_activity = ClinicalActivity(
+        patient_id=patient.id,
+        type="Lab Report",
+        facility=data.get('facility', 'Nexus Portal Upload'),
+        physician=current_user.name,
+        status="Uploaded",
+        notes=data.get('notes', ''),
+        critical_finding=data.get('critical', False),
+        report_data=data.get('reportData', ''),
+        date=datetime.datetime.now(timezone.utc)
+    )
+    db.session.add(new_activity)
+    
+    if new_activity.critical_finding:
+        patient.status = 'Critical'
+        patient.health_score = max(0, patient.health_score - 15)
+        
     db.session.commit()
+    return jsonify({'message': 'Report uploaded successfully', 'activity': new_activity.to_dict()}), 201
 
-    return jsonify({'message': 'Patient deleted'})
-
+@app.route('/api/patients/<int:id>/review', methods=['POST'])
+@token_required
+def save_review(current_user, id):
+    patient = Patient.query.get_or_404(id)
+    data = request.get_json()
+    
+    new_activity = ClinicalActivity(
+        patient_id=patient.id,
+        type="Doctor Review",
+        facility=data.get('facility', 'Nexus Portal'),
+        physician=current_user.name,
+        status="Completed",
+        notes=data.get('notes', ''),
+        date=datetime.datetime.now(timezone.utc)
+    )
+    db.session.add(new_activity)
+    
+    new_condition = data.get('condition')
+    if new_condition:
+        db.session.add(Condition(patient_id=patient.id, name=new_condition))
+    
+    patient.last_visit = datetime.datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify({'message': 'Medical review saved', 'activity': new_activity.to_dict()}), 201
 
 @app.route('/api/patients/<int:id>', methods=['GET'])
 @token_required
 def get_patient(current_user, id):
-    if current_user.role != 'admin' and current_user.patient_id != id:
-        return jsonify({'message': 'Unauthorized'}), 403
-
     patient = Patient.query.get_or_404(id)
     return jsonify(patient.to_dict())
 
 @app.route('/api/patients/<int:id>/vitals', methods=['POST'])
 @token_required
 def add_vital(current_user, id):
-    if current_user.role != 'admin':
-        return jsonify({'message': 'Unauthorized'}), 403
-        
     patient = Patient.query.get_or_404(id)
     data = request.get_json()
     try:
         hr_val = int(data.get('hr', 75))
-    except (ValueError, TypeError):
-        hr_val = 75
-        
-    try:
         spo2_val = int(data.get('spo2', 98))
     except (ValueError, TypeError):
-        spo2_val = 98
+        hr_val, spo2_val = 75, 98
 
-    new_vital = Vital(
-        patient_id=patient.id,
-        hr=hr_val,
-        bp=data.get('bp', '120/80'),
-        spo2=spo2_val
-    )
+    new_vital = Vital(patient_id=patient.id, hr=hr_val, bp=data.get('bp', '120/80'), spo2=spo2_val)
     db.session.add(new_vital)
     
-    # Simple logic to update health status based on vitals
     if new_vital.hr > 100 or new_vital.spo2 < 95:
         patient.status = 'Critical'
         patient.health_score = max(0, patient.health_score - 10)
@@ -231,7 +256,7 @@ import google.generativeai as genai
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-flash-latest')
 else:
     model = None
 
@@ -246,47 +271,59 @@ def chat_analysis(current_user):
         return jsonify({'message': 'Patient ID is required'}), 400
         
     patient = Patient.query.get_or_404(patient_id)
-    vitals_list = Vital.query.filter_by(patient_id=patient.id).order_by(Vital.timestamp.desc()).limit(5).all()
+    # Fetch last 10 vitals for trend analysis
+    vitals_list = Vital.query.filter_by(patient_id=patient.id).order_by(Vital.timestamp.desc()).limit(10).all()
     latest_vital = vitals_list[0] if vitals_list else None
     
     # Context for AI
     context = {
         'name': patient.name,
         'age': patient.age,
+        'gender': patient.gender,
         'status': patient.status,
         'health_score': patient.health_score,
         'conditions': [c.name for c in patient.conditions],
-        'vitals': [{'hr': v.hr, 'bp': v.bp, 'spo2': v.spo2, 'time': v.timestamp.strftime('%H:%M')} for v in vitals_list],
-        'activities': [a.to_dict() for a in patient.activities[:5]]
+        'vitals': [{'hr': v.hr, 'bp': v.bp, 'spo2': v.spo2, 'time': v.timestamp.strftime('%Y-%m-%d %H:%M')} for v in vitals_list],
+        # Fetch last 10 activities
+        'activities': [a.to_dict() for a in patient.activities[:10]]
     }
 
     if model:
         try:
             prompt = f"""
             You are Nexus AI, an advanced clinical decision support system. 
-            You are analyzing the patient: {context['name']} (Age: {context['age']}).
+            You are analyzing the patient: {context['name']} (Age: {context['age']}, Gender: {context['gender']}).
             
             Current Clinical State:
             - Status: {context['status']}
             - Health Score: {context['health_score']}/100
             - Conditions: {', '.join(context['conditions'])}
-            - Latest Vitals: {context['vitals'][0] if context['vitals'] else 'N/A'}
-            - Recent Activity: {len(context['activities'])} entries
+            
+            Historical Vitals (Last 10 readings, newest first):
+            {context['vitals']}
+            
+            Recent Clinical Activities:
+            {[ {'type': a['type'], 'notes': a['notes'], 'date': a['date']} for a in context['activities'] ]}
             
             User Query: "{message}"
             
             Instructions:
             1. Provide a professional, clinical analysis based ONLY on the data provided.
-            2. If vitals are abnormal (e.g. HR > 100, SpO2 < 95), highlight them immediately.
-            3. Be concise and use medical terminology where appropriate.
-            4. If the query is "analyze" or "summary", provide a structured deep-scan of their current risk profile.
-            5. Always maintain a clinical and objective tone.
+            2. Detect trends in vitals (e.g. improving, deteriorating, stable).
+            3. If vitals are abnormal (e.g. HR > 100 or < 60, SpO2 < 95, BP high), highlight them.
+            4. Be concise and use medical terminology where appropriate.
+            5. Use Markdown for structure (bullet points, bold text).
+            6. Always maintain a clinical and objective tone.
+            7. Include a brief safety disclaimer at the end stating that this is an AI support tool and not a substitute for professional medical judgment.
             """
             
             response = model.generate_content(prompt)
             reply = response.text
         except Exception as e:
-            reply = f"AI Engine Error: {str(e)}. Falling back to local analysis..."
+            if "ResourceExhausted" in str(e) or "quota" in str(e).lower():
+                reply = "AI Engine Notice: The Gemini API free tier quota has been exceeded. Please check your billing details or retry later. Falling back to local analysis..."
+            else:
+                reply = f"AI Engine Error: {str(e)}. Falling back to local analysis..."
             model_fallback = True
     else:
         model_fallback = True
@@ -351,4 +388,4 @@ def chat_analysis(current_user):
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5002)
