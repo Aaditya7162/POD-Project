@@ -936,11 +936,18 @@ function toggleTheme() {
 
 function previewReport(id, type) {
     if (type !== 'Lab Report') return;
-    
+
     const act = window.currentPatientActivities ? window.currentPatientActivities.find(a => String(a.id) === String(id)) : null;
 
+    // Remove any existing report preview first
+    const existing = document.getElementById('report-preview-modal');
+    if (existing) existing.remove();
+
     const modal = document.createElement('div');
-    modal.className = 'qr-scanner-overlay animate-fade-in';
+    modal.id = 'report-preview-modal';
+    modal.className = 'animate-fade-in';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:7000;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+
     
     let contentHtml = '';
     if (act && act.reportData && act.reportData.startsWith('data:image')) {
@@ -1005,7 +1012,7 @@ function previewReport(id, type) {
                 <h3 style="margin:0;">Lab Report Preview</h3>
                 <div style="display:flex; gap:12px; align-items:center;">
                     ${act && act.reportData ? `<button onclick="downloadReport('${id}')" class="btn-primary" style="padding:8px 16px; background:var(--success);">⬇️ Download</button>` : ''}
-                    <button onclick="this.closest('.qr-scanner-overlay').remove()" class="btn-primary" style="padding:8px 16px;">Close Preview</button>
+                    <button onclick="document.getElementById('report-preview-modal').remove()" class="btn-primary" style="padding:8px 16px;">Close Preview</button>
                 </div>
             </div>
             <div style="flex-grow:1; background:#f1f5f9; padding:40px; overflow-y:auto; display:flex; justify-content:center;">
