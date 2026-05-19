@@ -429,6 +429,7 @@ function renderPatientMedicalDashboard(container, patient) {
                             <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
                                 <h1 style="font-size:2.25rem; font-weight:800; margin:0;">${patient.name}</h1>
                                 <button onclick="showIdCardModal(${patient.id}, '${patient.abha}', '${patient.name}')" style="background:var(--primary-light); color:var(--primary); border:none; padding:4px 12px; border-radius:12px; font-weight:bold; cursor:pointer; font-size:0.8rem;">🪪 ID Card</button>
+                                ${CURRENT_USER.role === 'admin' ? `<button onclick='showEditPatientModal(${JSON.stringify(patient).replace(/'/g, "\\'")})' style="background:var(--bg-main); color:var(--secondary); border:1px solid var(--border); padding:4px 12px; border-radius:12px; font-weight:bold; cursor:pointer; font-size:0.8rem;">✎ Edit Profile</button>` : ''}
                             </div>
                             <div style="display:flex; gap:12px; color:var(--text-muted); font-size:0.9rem;">
                                 <span>${patient.age} Yrs</span> • <span>${patient.gender}</span> • <span>ABHA: ${patient.abha}</span>
@@ -460,7 +461,10 @@ function renderPatientMedicalDashboard(container, patient) {
                             <div class="timeline-card" onclick="previewReport('${act.id}', '${act.type}')">
                                 <div class="timeline-header">
                                     <div class="timeline-meta">${act.date} • ${act.time}</div>
-                                    <div class="badge" style="font-size:0.65rem; background:var(--bg-main); border:1px solid var(--border);">${act.facility}</div>
+                                    <div style="display:flex; gap:8px; align-items:center;">
+                                        <div class="badge" style="font-size:0.65rem; background:var(--bg-main); border:1px solid var(--border);">${act.facility}</div>
+                                        ${CURRENT_USER.role === 'admin' ? `<button onclick="event.stopPropagation(); deleteActivity(${act.id}, ${patient.id})" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:1rem;" title="Delete Activity">🗑️</button>` : ''}
+                                    </div>
                                 </div>
                                 <div class="timeline-title">${act.type}</div>
                                 <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">${act.notes || 'No additional notes provided.'}</div>
@@ -1139,6 +1143,113 @@ async function deletePatientRecord(patientId, patientName) {
                 switchView('patients');
             } else {
                 showToast("Unauthorized or Error deleting patient", "danger");
+            }
+        } catch (err) {
+            showToast("Network Error", "danger");
+        }
+    }
+}
+
+function showEditPatientModal(patient) {
+    const modal = document.createElement('div');
+    modal.className = 'qr-scanner-overlay animate-fade-in';
+    modal.innerHTML = `
+        <div class="widget glass" style="width:600px; padding:32px; max-height:90vh; overflow-y:auto;">
+            <h2 style="margin-bottom:24px;">Edit Patient Profile</h2>
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                <div class="form-group">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Full Name</label>
+                    <input type="text" id="edit-name" class="search-input" style="padding-left:16px; width:100%;" value="${patient.name}">
+                </div>
+                <div style="display:flex; gap:16px;">
+                    <div class="form-group" style="flex:1;">
+                        <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Age</label>
+                        <input type="number" id="edit-age" class="search-input" style="padding-left:16px; width:100%;" value="${patient.age}">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Gender</label>
+                        <select id="edit-gender" class="search-input" style="padding-left:16px; width:100%;">
+                            <option value="Male" ${patient.gender === 'Male' ? 'selected' : ''}>Male</option>
+                            <option value="Female" ${patient.gender === 'Female' ? 'selected' : ''}>Female</option>
+                            <option value="Other" ${patient.gender === 'Other' ? 'selected' : ''}>Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display:flex; gap:16px;">
+                    <div class="form-group" style="flex:1;">
+                        <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Blood Group</label>
+                        <input type="text" id="edit-blood" class="search-input" style="padding-left:16px; width:100%;" value="${patient.bloodGroup}">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Height</label>
+                        <input type="text" id="edit-height" class="search-input" style="padding-left:16px; width:100%;" value="${patient.height}">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Weight</label>
+                        <input type="text" id="edit-weight" class="search-input" style="padding-left:16px; width:100%;" value="${patient.weight}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Allergies</label>
+                    <input type="text" id="edit-allergies" class="search-input" style="padding-left:16px; width:100%;" value="${patient.allergies}">
+                </div>
+                <div style="display:flex; gap:12px; margin-top:12px;">
+                    <button class="btn-primary" style="flex-grow:1;" id="save-patient-details">Save Changes</button>
+                    <button onclick="this.closest('.qr-scanner-overlay').remove()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.querySelector('#save-patient-details').addEventListener('click', async () => {
+        const payload = {
+            name: document.getElementById('edit-name').value,
+            age: document.getElementById('edit-age').value,
+            gender: document.getElementById('edit-gender').value,
+            bloodGroup: document.getElementById('edit-blood').value,
+            height: document.getElementById('edit-height').value,
+            weight: document.getElementById('edit-weight').value,
+            allergies: document.getElementById('edit-allergies').value
+        };
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/patients/${patient.id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${AUTH_TOKEN}`
+                },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                showToast("Patient profile updated successfully!");
+                modal.remove();
+                openPatientDetail(patient.id);
+            } else {
+                showToast("Error updating patient profile", "danger");
+            }
+        } catch (err) {
+            showToast("Network Error", "danger");
+        }
+    });
+}
+
+async function deleteActivity(activityId, patientId) {
+    if (confirm("Are you sure you want to permanently delete this clinical activity?")) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/activities/${activityId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${AUTH_TOKEN}`
+                }
+            });
+            
+            if (res.ok) {
+                showToast("Activity deleted successfully", "success");
+                openPatientDetail(patientId);
+            } else {
+                showToast("Error deleting activity", "danger");
             }
         } catch (err) {
             showToast("Network Error", "danger");

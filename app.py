@@ -167,7 +167,22 @@ def update_patient(current_user, id):
     patient = Patient.query.get_or_404(id)
     data = request.get_json()
     
-    # Only allow updates to certain fields for now, like bank details and insurance
+    if 'name' in data:
+        patient.name = data['name']
+    if 'age' in data:
+        patient.age = int(data['age'])
+    if 'gender' in data:
+        patient.gender = data['gender']
+    if 'bloodGroup' in data:
+        patient.blood_group = data['bloodGroup']
+    if 'height' in data:
+        patient.height = data['height']
+    if 'weight' in data:
+        patient.weight = data['weight']
+    if 'allergies' in data:
+        patient.allergies = data['allergies']
+    
+    # Financial fields
     if 'insuranceProvider' in data:
         patient.insurance_provider = data['insuranceProvider']
     if 'insurancePolicyNumber' in data:
@@ -179,6 +194,17 @@ def update_patient(current_user, id):
         
     db.session.commit()
     return jsonify({'message': 'Patient details updated', 'patient': patient.to_dict()}), 200
+
+@app.route('/api/activities/<int:id>', methods=['DELETE'])
+@token_required
+def delete_activity(current_user, id):
+    if current_user.role != 'admin':
+        return jsonify({'message': 'Unauthorized'}), 403
+        
+    activity = ClinicalActivity.query.get_or_404(id)
+    db.session.delete(activity)
+    db.session.commit()
+    return jsonify({'message': 'Clinical activity deleted successfully'}), 200
 
 @app.route('/api/patients/<int:id>', methods=['DELETE'])
 @token_required
