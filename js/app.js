@@ -166,60 +166,216 @@ function startQRScanner() {
 
 async function onScanSuccess(decodedText) {
     stopQRScanner();
-    showToast("✅ Nexus Card Scanned: " + decodedText);
+    showToast('✅ Nexus Card Scanned');
 
-    // If user is not logged in (scanned from the login screen),
-    // auto-authenticate with the demo clinician account first.
-    if (!AUTH_TOKEN || !CURRENT_USER) {
-        showToast("Authenticating via Nexus Card scan...");
+    const isLoggedIn = AUTH_TOKEN && CURRENT_USER;
+
+    if (!isLoggedIn) {
+        // ── Read-only preview mode (no login required) ──
         try {
-            const loginRes = await fetch(`${API_BASE_URL}/login`, {
+            const res = await fetch(`${API_BASE_URL}/patients/preview`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: 'dr.gupta@nexus.ai', password: 'password' })
+                body: JSON.stringify({ identifier: decodedText })
             });
-            if (!loginRes.ok) {
-                showToast("Auto-login failed. Please log in manually.", "danger");
-                return;
-            }
-            const loginData = await loginRes.json();
-            AUTH_TOKEN = loginData.token;
-            CURRENT_USER = loginData.user;
-            localStorage.setItem('nexus_token', AUTH_TOKEN);
-            localStorage.setItem('nexus_user', JSON.stringify(CURRENT_USER));
-            // Show the portal UI before loading patient
-            showApp();
+            if (!res.ok) { showToast('Patient not found for this QR code.', 'danger'); return; }
+            const patient = await res.json();
+            showReadOnlyPreview(patient);
         } catch (err) {
-            showToast("Connection error during auto-login.", "danger");
-            return;
+            showToast('Could not fetch patient preview. Is the server running?', 'danger');
         }
-    } else if (document.getElementById('login-screen') && !document.getElementById('login-screen').classList.contains('hidden')) {
-        // Token exists but app panel is hidden (e.g. page just loaded)
-        showApp();
+        return;
     }
 
-    // Now pull the patient record using the valid token
+    // ── Full access (already logged in) ──
+    if (document.getElementById('login-screen') && !document.getElementById('login-screen').classList.contains('hidden')) {
+        showApp();
+    }
     try {
         const res = await fetch(`${API_BASE_URL}/patients/scan`, {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${AUTH_TOKEN}`
-            },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AUTH_TOKEN}` },
             body: JSON.stringify({ identifier: decodedText })
         });
-        
         if (res.ok) {
             const patient = await res.json();
             showToast(`📋 Pulling records for ${patient.name}...`);
             switchView('patient-detail', patient);
         } else {
-            showToast("Patient record not found for this QR code.", "danger");
+            showToast('Patient record not found for this QR code.', 'danger');
         }
     } catch (err) {
-        showToast("Failed to pull patient records. Is the server running?", "danger");
+        showToast('Failed to pull patient records. Is the server running?', 'danger');
     }
 }
+
+function showReadOnlyPreview(patient) {
+    // Store activities for preview/download
+    window.currentPatientActivities = patient.recentActivity;
+
+    const statusColor = {
+        critical: 'var(--danger)',
+        stable: 'var(--success)',
+        active: 'var(--primary)',
+        observation: '#f59e0b'
+    }[patient.status.toLowerCase()] || 'var(--primary)';
+
+    const modal = document.createElement('div');
+    modal.id = 'preview-overlay';
+    modal.style.cssText = `
+        position:fixed; inset:0; z-index:5000;
+        background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);
+        display:flex; align-items:center; justify-content:center;
+        padding:24px;
+    `;
+
+    modal.innerHTML = `
+        <div style="
+            background:var(--bg-card); border-radius:28px; border:1px solid var(--border);
+            box-shadow:0 32px 80px rgba(0,0,0,0.4);
+            width:100%; max-width:780px; max-height:90vh;
+            display:flex; flex-direction:column; overflow:hidden;
+            font-family:'Inter',sans-serif;
+        ">
+            <!-- Header -->
+            <div style="
+                padding:20px 28px; border-bottom:1px solid var(--border);
+                display:flex; align-items:center; justify-content:space-between;
+                background:var(--bg-main); flex-shrink:0;
+            ">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="
+                        width:36px; height:36px; border-radius:50%;
+                        background:var(--primary-light); color:var(--primary);
+                        display:flex; align-items:center; justify-content:center;
+                        font-weight:800; font-size:0.9rem;
+                    ">${patient.avatar}</div>
+                    <div>
+                        <div style="font-weight:700; font-size:1rem;">${patient.name}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">ABHA: ${patient.abha}</div>
+                    </div>
+                    <span style="
+                        margin-left:8px; padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:700;
+                        background:${statusColor}22; color:${statusColor};
+                    ">${patient.status}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="
+                        padding:4px 12px; border-radius:20px; font-size:0.72rem; font-weight:700;
+                        background:var(--primary-light); color:var(--primary);
+                    ">🔒 Read-Only Preview</div>
+                    <button onclick="document.getElementById('preview-overlay').remove()" style="
+                        background:var(--bg-card); border:1px solid var(--border);
+                        border-radius:50%; width:32px; height:32px; cursor:pointer;
+                        color:var(--text-muted); font-size:1.1rem; display:flex; align-items:center; justify-content:center;
+                    ">✕</button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div style="overflow-y:auto; flex-grow:1; padding:24px 28px; display:flex; flex-direction:column; gap:20px;">
+
+                <!-- Patient info grid -->
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px;">
+                    ${[
+                        ['Age', patient.age + ' yrs'],
+                        ['Gender', patient.gender],
+                        ['Blood Group', patient.bloodGroup],
+                        ['Health Score', patient.healthScore + '/100'],
+                        ['Height', patient.height],
+                        ['Weight', patient.weight],
+                        ['Last Visit', patient.lastVisit],
+                        ['Insurance', patient.insuranceProvider || 'Not set'],
+                    ].map(([label, val]) => `
+                        <div style="background:var(--bg-main); padding:12px 14px; border-radius:14px;">
+                            <div style="font-size:0.68rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px;">${label}</div>
+                            <div style="font-weight:600; font-size:0.88rem;">${val}</div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <!-- Conditions & Allergies -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div style="background:var(--bg-main); padding:14px 16px; border-radius:14px;">
+                        <div style="font-size:0.7rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">Conditions</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                            ${patient.conditions.length ? patient.conditions.map(c => `<span style="padding:4px 10px; background:var(--primary-light); color:var(--primary); border-radius:20px; font-size:0.78rem; font-weight:600;">${c}</span>`).join('') : '<span style="color:var(--text-muted); font-size:0.85rem;">None recorded</span>'}
+                        </div>
+                    </div>
+                    <div style="background:${patient.allergies && patient.allergies !== 'None' ? 'rgba(239,68,68,0.07)' : 'var(--bg-main)'}; border-left:3px solid ${patient.allergies && patient.allergies !== 'None' ? 'var(--danger)' : 'var(--border)'}; padding:14px 16px; border-radius:14px;">
+                        <div style="font-size:0.7rem; font-weight:700; color:${patient.allergies && patient.allergies !== 'None' ? 'var(--danger)' : 'var(--text-muted)'}; text-transform:uppercase; margin-bottom:8px;">⚠ Allergies</div>
+                        <div style="font-weight:600; font-size:0.88rem;">${patient.allergies || 'None'}</div>
+                    </div>
+                </div>
+
+                <!-- Medical Timeline (read-only) -->
+                <div>
+                    <div style="font-weight:700; font-size:0.9rem; margin-bottom:14px; color:var(--text-muted); text-transform:uppercase; font-size:0.72rem; letter-spacing:0.05em;">
+                        Medical Timeline — ${patient.recentActivity.length} Events
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        ${patient.recentActivity.map(act => `
+                            <div style="
+                                background:var(--bg-main); border:1px solid var(--border);
+                                border-radius:14px; padding:14px 16px;
+                                display:flex; align-items:flex-start; gap:14px;
+                            ">
+                                <div style="font-size:1.4rem; flex-shrink:0;">${getActivityIcon(act.type)}</div>
+                                <div style="flex-grow:1; min-width:0;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                        <div style="font-weight:700; font-size:0.9rem;">${act.type}</div>
+                                        <div style="font-size:0.72rem; color:var(--text-muted); white-space:nowrap;">${act.date} · ${act.time}</div>
+                                    </div>
+                                    <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:8px;">${act.notes || 'No notes.'}</div>
+                                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                                        <span style="font-size:0.75rem; font-weight:600; color:var(--primary);">👨‍⚕️ ${act.physician}</span>
+                                        <div style="display:flex; gap:8px;">
+                                            ${act.critical ? '<span style="font-size:0.72rem; font-weight:700; color:var(--danger);">⚠️ Critical</span>' : ''}
+                                            ${act.reportData ? `
+                                                <button onclick="previewReport('${act.id}','Lab Report')" style="
+                                                    background:var(--primary-light); color:var(--primary);
+                                                    border:none; padding:4px 10px; border-radius:8px;
+                                                    font-size:0.72rem; font-weight:700; cursor:pointer;
+                                                ">👁 Preview</button>
+                                                <button onclick="downloadReport('${act.id}')" style="
+                                                    background:rgba(34,197,94,0.12); color:var(--success);
+                                                    border:none; padding:4px 10px; border-radius:8px;
+                                                    font-size:0.72rem; font-weight:700; cursor:pointer;
+                                                ">⬇ Download</button>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="
+                padding:16px 28px; border-top:1px solid var(--border);
+                display:flex; align-items:center; justify-content:space-between;
+                background:var(--bg-main); flex-shrink:0;
+            ">
+                <span style="font-size:0.78rem; color:var(--text-muted);">🔒 Read-only access · No changes can be made</span>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="document.getElementById('preview-overlay').remove()" style="
+                        background:none; border:1px solid var(--border); border-radius:12px;
+                        padding:8px 18px; cursor:pointer; color:var(--text-muted); font-weight:600; font-size:0.85rem;
+                    ">Close</button>
+                    <button onclick="document.getElementById('preview-overlay').remove(); showLoginForm('admin');" style="
+                        background:var(--primary); color:white; border:none; border-radius:12px;
+                        padding:8px 18px; cursor:pointer; font-weight:700; font-size:0.85rem;
+                    ">🔐 Login for Full Access</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
 
 function stopQRScanner() {
     if (html5QrCode) {

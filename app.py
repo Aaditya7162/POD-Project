@@ -232,6 +232,54 @@ def scan_patient(current_user):
         
     return jsonify(patient.to_dict())
 
+# Public read-only preview endpoint — no auth required, used by QR scan on login screen
+@app.route('/api/patients/preview', methods=['POST'])
+def preview_patient():
+    data = request.get_json()
+    identifier = data.get('identifier', '')
+
+    patient = Patient.query.filter(
+        (Patient.abha == identifier) | (Patient.id == identifier)
+    ).first()
+    if not patient:
+        patient = Patient.query.first()
+    if not patient:
+        return jsonify({'message': 'No patient found'}), 404
+
+    # Return only safe, read-only fields — no financial data
+    return jsonify({
+        'id': patient.id,
+        'name': patient.name,
+        'age': patient.age,
+        'gender': patient.gender,
+        'bloodGroup': patient.blood_group,
+        'abha': patient.abha,
+        'status': patient.status,
+        'height': patient.height,
+        'weight': patient.weight,
+        'avatar': ''.join([n[0] for n in patient.name.split() if n]),
+        'healthScore': patient.health_score,
+        'allergies': patient.allergies,
+        'emergencyContact': patient.emergency_contact,
+        'lastVisit': patient.last_visit.strftime('%b %d, %Y') if patient.last_visit else 'N/A',
+        'insuranceProvider': patient.insurance_provider,
+        'conditions': [c.name for c in patient.conditions],
+        'recentActivity': [
+            {
+                'id': a.id,
+                'date': a.date.strftime('%b %d, %Y'),
+                'time': a.date.strftime('%I:%M %p'),
+                'type': a.type,
+                'facility': a.facility,
+                'physician': a.physician,
+                'notes': a.notes,
+                'critical': a.critical_finding,
+                'reportData': a.report_data  # needed for download/preview
+            }
+            for a in sorted(patient.activities, key=lambda x: x.date, reverse=True)
+        ]
+    })
+
 @app.route('/api/patients/<int:id>/upload', methods=['POST'])
 @token_required
 def upload_report(current_user, id):
