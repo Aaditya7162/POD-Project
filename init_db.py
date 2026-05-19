@@ -22,30 +22,33 @@ def init_db():
         )
         db.session.add(admin)
 
-        # 2. Create Patients with Rich Data
         patients_data = [
             {
                 "name": "Arjun Sharma", "age": 45, "gender": "Male", "blood_group": "A+", 
                 "abha": "91-2204-1102-4421", "status": "Stable", "height": "175 cm", "weight": "78 kg", 
                 "health_score": 82, "allergies": "Penicillin, Sulfa", "emergency_contact": "Anita Sharma (Wife) - +91 98765 43210",
+                "insurance_provider": "HDFC Ergo", "insurance_policy_number": "POL-12345678", "bank_account_number": "XXXX-XXXX-1234", "ifsc_code": "HDFC0001234",
                 "last_visit": datetime.datetime.now(timezone.utc) - datetime.timedelta(days=12)
             },
             {
                 "name": "Priya Singh", "age": 32, "gender": "Female", "blood_group": "O+", 
                 "abha": "91-3305-2213-5532", "status": "Active", "height": "162 cm", "weight": "55 kg", 
                 "health_score": 91, "allergies": "None", "emergency_contact": "Vikram Singh (Brother) - +91 98765 12345",
+                "insurance_provider": "Star Health", "insurance_policy_number": "SH-98765432", "bank_account_number": "XXXX-XXXX-5678", "ifsc_code": "SBIN0005678",
                 "last_visit": datetime.datetime.now(timezone.utc) - datetime.timedelta(days=5)
             },
             {
                 "name": "Rahul Verma", "age": 58, "gender": "Male", "blood_group": "B-", 
                 "abha": "91-4406-3324-6643", "status": "Observation", "height": "170 cm", "weight": "82 kg", 
                 "health_score": 65, "allergies": "Latex, Dust", "emergency_contact": "Sunil Verma (Son) - +91 98765 55667",
+                "insurance_provider": "ICICI Lombard", "insurance_policy_number": "IL-55554444", "bank_account_number": "XXXX-XXXX-9012", "ifsc_code": "ICIC0009012",
                 "last_visit": datetime.datetime.now(timezone.utc) - datetime.timedelta(days=2)
             },
             {
                 "name": "Ananya Iyer", "age": 24, "gender": "Female", "blood_group": "AB+", 
                 "abha": "91-5507-4435-7754", "status": "Critical", "height": "158 cm", "weight": "49 kg", 
                 "health_score": 34, "allergies": "Peanuts, Shellfish", "emergency_contact": "Lakshmi Iyer (Mother) - +91 98765 88990",
+                "insurance_provider": "Max Bupa", "insurance_policy_number": "MB-11223344", "bank_account_number": "XXXX-XXXX-3456", "ifsc_code": "UTIB0003456",
                 "last_visit": datetime.datetime.now(timezone.utc) - datetime.timedelta(hours=6)
             }
         ]

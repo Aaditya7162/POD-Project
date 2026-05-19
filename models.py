@@ -30,6 +30,12 @@ class Patient(db.Model):
     emergency_contact = db.Column(db.String(100))
     last_visit = db.Column(db.DateTime)
     
+    # Insurance and Bank Details
+    insurance_provider = db.Column(db.String(100), default='None')
+    insurance_policy_number = db.Column(db.String(50), default='')
+    bank_account_number = db.Column(db.String(50), default='')
+    ifsc_code = db.Column(db.String(20), default='')
+    
     # Relationships
     vitals = db.relationship('Vital', backref='patient', lazy=True, cascade="all, delete-orphan")
     conditions = db.relationship('Condition', backref='patient', lazy=True, cascade="all, delete-orphan")
@@ -56,6 +62,10 @@ class Patient(db.Model):
             'allergies': self.allergies,
             'emergencyContact': self.emergency_contact,
             'lastVisit': self.last_visit.strftime('%b %d, %Y') if self.last_visit else 'N/A',
+            'insuranceProvider': self.insurance_provider,
+            'insurancePolicyNumber': self.insurance_policy_number,
+            'bankAccountNumber': self.bank_account_number,
+            'ifscCode': self.ifsc_code,
             'vitals': {
                 'hr': latest_vital.hr if latest_vital else 75,
                 'bp': latest_vital.bp if latest_vital else '120/80',

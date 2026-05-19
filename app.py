@@ -139,6 +139,10 @@ def add_patient(current_user):
         health_score=80 if data.get('status') != 'Critical' else 35,
         allergies=data.get('allergies', 'None'),
         emergency_contact=data.get('emergencyContact', ''),
+        insurance_provider=data.get('insuranceProvider', 'None'),
+        insurance_policy_number=data.get('insurancePolicyNumber', ''),
+        bank_account_number=data.get('bankAccountNumber', ''),
+        ifsc_code=data.get('ifscCode', ''),
         last_visit=datetime.datetime.now(timezone.utc)
     )
     db.session.add(new_patient)
@@ -156,6 +160,25 @@ def add_patient(current_user):
     db.session.commit()
 
     return jsonify(new_patient.to_dict()), 201
+
+@app.route('/api/patients/<int:id>', methods=['PUT'])
+@token_required
+def update_patient(current_user, id):
+    patient = Patient.query.get_or_404(id)
+    data = request.get_json()
+    
+    # Only allow updates to certain fields for now, like bank details and insurance
+    if 'insuranceProvider' in data:
+        patient.insurance_provider = data['insuranceProvider']
+    if 'insurancePolicyNumber' in data:
+        patient.insurance_policy_number = data['insurancePolicyNumber']
+    if 'bankAccountNumber' in data:
+        patient.bank_account_number = data['bankAccountNumber']
+    if 'ifscCode' in data:
+        patient.ifsc_code = data['ifscCode']
+        
+    db.session.commit()
+    return jsonify({'message': 'Patient details updated', 'patient': patient.to_dict()}), 200
 
 @app.route('/api/patients/scan', methods=['POST'])
 @token_required

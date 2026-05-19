@@ -280,7 +280,15 @@ async function openPatientDetail(id) {
 }
 
 async function renderPatientDirectory(container) {
-    container.innerHTML = `<div class="animate-fade-in"><h1 style="margin-bottom:24px;">Patient Directory</h1><div id="patient-grid" class="patient-grid">Loading...</div></div>`;
+    container.innerHTML = `
+        <div class="animate-fade-in">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                <h1 style="margin:0;">Patient Directory</h1>
+                <button class="btn-primary" onclick="showAddPatientModal()">+ Add New Patient</button>
+            </div>
+            <div id="patient-grid" class="patient-grid">Loading...</div>
+        </div>
+    `;
     
     try {
         const res = await fetch(`${API_BASE_URL}/patients`, {
@@ -418,7 +426,10 @@ function renderPatientMedicalDashboard(container, patient) {
                 <div class="patient-info">
                     <div class="patient-header">
                         <div>
-                            <h1 style="font-size:2.25rem; font-weight:800; margin-bottom:4px;">${patient.name}</h1>
+                            <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+                                <h1 style="font-size:2.25rem; font-weight:800; margin:0;">${patient.name}</h1>
+                                <button onclick="showIdCardModal(${patient.id}, '${patient.abha}', '${patient.name}')" style="background:var(--primary-light); color:var(--primary); border:none; padding:4px 12px; border-radius:12px; font-weight:bold; cursor:pointer; font-size:0.8rem;">🪪 ID Card</button>
+                            </div>
                             <div style="display:flex; gap:12px; color:var(--text-muted); font-size:0.9rem;">
                                 <span>${patient.age} Yrs</span> • <span>${patient.gender}</span> • <span>ABHA: ${patient.abha}</span>
                             </div>
@@ -492,7 +503,32 @@ function renderPatientMedicalDashboard(container, patient) {
                         <div class="logo-circle" style="width:40px; height:40px; background:var(--primary-light); color:var(--primary);">📞</div>
                         <div>
                             <div style="font-weight:700; font-size:0.85rem;">${patient.emergencyContact.split(' - ')[0]}</div>
-                            <div style="font-size:0.75rem; color:var(--text-muted);">${patient.emergencyContact.split(' - ')[1]}</div>
+                            <div style="font-size:0.75rem; color:var(--text-muted);">${patient.emergencyContact ? patient.emergencyContact.split(' - ')[1] : ''}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="widget">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <div class="widget-title" style="margin:0;">Insurance & Bank Details</div>
+                        <button onclick='showBankDetailsModal(${JSON.stringify(patient).replace(/'/g, "\\'")})' style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:0.8rem; font-weight:bold;">✎ Edit</button>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:8px; font-size:0.85rem;">
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:var(--text-muted);">Provider</span>
+                            <span style="font-weight:600;">${patient.insuranceProvider || 'Not Set'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:var(--text-muted);">Policy No.</span>
+                            <span style="font-weight:600;">${patient.insurancePolicyNumber || 'Not Set'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; border-top:1px solid var(--border); padding-top:8px; margin-top:4px;">
+                            <span style="color:var(--text-muted);">Bank A/C</span>
+                            <span style="font-weight:600;">${patient.bankAccountNumber || 'Not Set'}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:var(--text-muted);">IFSC</span>
+                            <span style="font-weight:600;">${patient.ifscCode || 'Not Set'}</span>
                         </div>
                     </div>
                 </div>
@@ -861,4 +897,172 @@ async function sendAIMessage() {
         body.innerHTML += `<div class="ai-message" style="color:var(--danger);">Error: Could not connect to AI Engine.</div>`;
         showToast("AI Error", "danger");
     }
+}
+
+function showAddPatientModal() {
+    const modal = document.createElement('div');
+    modal.className = 'qr-scanner-overlay animate-fade-in';
+    modal.innerHTML = `
+        <div class="widget glass" style="width:500px; padding:32px; max-height:90vh; overflow-y:auto;">
+            <h2 style="margin-bottom:24px;">Add New Patient</h2>
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                <div class="form-group">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Full Name *</label>
+                    <input type="text" id="add-name" class="search-input" style="padding-left:16px; width:100%;" required>
+                </div>
+                <div style="display:flex; gap:16px;">
+                    <div class="form-group" style="flex:1;">
+                        <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Age *</label>
+                        <input type="number" id="add-age" class="search-input" style="padding-left:16px; width:100%;" required>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Gender *</label>
+                        <select id="add-gender" class="search-input" style="padding-left:16px; width:100%;" required>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display:flex; gap:16px;">
+                    <div class="form-group" style="flex:1;">
+                        <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Blood Group *</label>
+                        <input type="text" id="add-blood" class="search-input" style="padding-left:16px; width:100%;" placeholder="e.g. O+">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">ABHA ID *</label>
+                        <input type="text" id="add-abha" class="search-input" style="padding-left:16px; width:100%;" placeholder="91-0000-0000-0000">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Allergies</label>
+                    <input type="text" id="add-allergies" class="search-input" style="padding-left:16px; width:100%;" placeholder="None">
+                </div>
+                <div style="display:flex; gap:12px; margin-top:12px;">
+                    <button class="btn-primary" style="flex-grow:1;" id="confirm-add-patient">Add Patient</button>
+                    <button onclick="this.closest('.qr-scanner-overlay').remove()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.querySelector('#confirm-add-patient').addEventListener('click', async () => {
+        const name = document.getElementById('add-name').value;
+        const age = document.getElementById('add-age').value;
+        const gender = document.getElementById('add-gender').value;
+        const bloodGroup = document.getElementById('add-blood').value;
+        const abha = document.getElementById('add-abha').value;
+        const allergies = document.getElementById('add-allergies').value || 'None';
+
+        if (!name || !age || !gender || !bloodGroup || !abha) {
+            return showToast("Please fill all required fields", "danger");
+        }
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/patients`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${AUTH_TOKEN}`
+                },
+                body: JSON.stringify({ name, age, gender, bloodGroup, abha, allergies, status: 'Active' })
+            });
+            if (res.ok) {
+                showToast("Patient added successfully!");
+                modal.remove();
+                switchView('patients');
+            } else {
+                showToast("Error adding patient", "danger");
+            }
+        } catch (err) {
+            showToast("Network Error", "danger");
+        }
+    });
+}
+
+function showIdCardModal(patientId, abha, patientName) {
+    const modal = document.createElement('div');
+    modal.className = 'qr-scanner-overlay animate-fade-in';
+    modal.innerHTML = `
+        <div class="widget glass" style="width:400px; padding:32px; text-align:center;">
+            <h2 style="margin-bottom:24px;">Patient ID Card</h2>
+            <div style="background:white; padding:24px; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin-bottom:24px;">
+                <div style="font-weight:bold; font-size:1.2rem; margin-bottom:8px; color:black;">${patientName}</div>
+                <div style="color:#666; font-size:0.9rem; margin-bottom:16px;">ABHA: ${abha}</div>
+                <div id="id-qrcode" style="display:flex; justify-content:center;"></div>
+            </div>
+            <button onclick="this.closest('.qr-scanner-overlay').remove()" class="btn-primary" style="width:100%;">Close</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    new QRCode(document.getElementById("id-qrcode"), {
+        text: abha,
+        width: 200,
+        height: 200,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+    });
+}
+
+function showBankDetailsModal(patient) {
+    const modal = document.createElement('div');
+    modal.className = 'qr-scanner-overlay animate-fade-in';
+    modal.innerHTML = `
+        <div class="widget glass" style="width:500px; padding:32px;">
+            <h2 style="margin-bottom:24px;">Update Emergency Insurance & Bank Details</h2>
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                <div class="form-group">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Insurance Provider</label>
+                    <input type="text" id="edit-insurance-provider" class="search-input" style="padding-left:16px; width:100%;" value="${patient.insuranceProvider || ''}" placeholder="e.g. HDFC Ergo">
+                </div>
+                <div class="form-group">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Policy Number</label>
+                    <input type="text" id="edit-insurance-policy" class="search-input" style="padding-left:16px; width:100%;" value="${patient.insurancePolicyNumber || ''}" placeholder="e.g. POL-123456">
+                </div>
+                <div class="form-group">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">Bank Account Number</label>
+                    <input type="text" id="edit-bank-account" class="search-input" style="padding-left:16px; width:100%;" value="${patient.bankAccountNumber || ''}" placeholder="e.g. XXXX-XXXX-1234">
+                </div>
+                <div class="form-group">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px;">IFSC Code</label>
+                    <input type="text" id="edit-ifsc" class="search-input" style="padding-left:16px; width:100%;" value="${patient.ifscCode || ''}" placeholder="e.g. HDFC0001234">
+                </div>
+                <div style="display:flex; gap:12px; margin-top:12px;">
+                    <button class="btn-primary" style="flex-grow:1;" id="save-bank-details">Save Details</button>
+                    <button onclick="this.closest('.qr-scanner-overlay').remove()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.querySelector('#save-bank-details').addEventListener('click', async () => {
+        const insuranceProvider = document.getElementById('edit-insurance-provider').value;
+        const insurancePolicyNumber = document.getElementById('edit-insurance-policy').value;
+        const bankAccountNumber = document.getElementById('edit-bank-account').value;
+        const ifscCode = document.getElementById('edit-ifsc').value;
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/patients/${patient.id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${AUTH_TOKEN}`
+                },
+                body: JSON.stringify({ insuranceProvider, insurancePolicyNumber, bankAccountNumber, ifscCode })
+            });
+            if (res.ok) {
+                showToast("Bank details updated successfully!");
+                modal.remove();
+                openPatientDetail(patient.id);
+            } else {
+                showToast("Error updating details", "danger");
+            }
+        } catch (err) {
+            showToast("Network Error", "danger");
+        }
+    });
 }
