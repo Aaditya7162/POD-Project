@@ -159,15 +159,46 @@ function startQRScanner() {
         { fps: 10, qrbox: { width: 250, height: 250 } },
         onScanSuccess
     ).catch(err => {
-        showToast("Camera access denied", "danger");
+        showToast("Camera access denied. Use manual patient lookup instead.", "danger");
         stopQRScanner();
     });
 }
 
 async function onScanSuccess(decodedText) {
     stopQRScanner();
-    showToast("Nexus Card Verified: " + decodedText);
-    
+    showToast("✅ Nexus Card Scanned: " + decodedText);
+
+    // If user is not logged in (scanned from the login screen),
+    // auto-authenticate with the demo clinician account first.
+    if (!AUTH_TOKEN || !CURRENT_USER) {
+        showToast("Authenticating via Nexus Card scan...");
+        try {
+            const loginRes = await fetch(`${API_BASE_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: 'dr.gupta@nexus.ai', password: 'password' })
+            });
+            if (!loginRes.ok) {
+                showToast("Auto-login failed. Please log in manually.", "danger");
+                return;
+            }
+            const loginData = await loginRes.json();
+            AUTH_TOKEN = loginData.token;
+            CURRENT_USER = loginData.user;
+            localStorage.setItem('nexus_token', AUTH_TOKEN);
+            localStorage.setItem('nexus_user', JSON.stringify(CURRENT_USER));
+            // Show the portal UI before loading patient
+            showApp();
+        } catch (err) {
+            showToast("Connection error during auto-login.", "danger");
+            return;
+        }
+    } else if (document.getElementById('login-screen') && !document.getElementById('login-screen').classList.contains('hidden')) {
+        // Token exists but app panel is hidden (e.g. page just loaded)
+        showApp();
+    }
+
+    // Now pull the patient record using the valid token
     try {
         const res = await fetch(`${API_BASE_URL}/patients/scan`, {
             method: 'POST',
@@ -180,16 +211,21 @@ async function onScanSuccess(decodedText) {
         
         if (res.ok) {
             const patient = await res.json();
+            showToast(`📋 Pulling records for ${patient.name}...`);
             switchView('patient-detail', patient);
+        } else {
+            showToast("Patient record not found for this QR code.", "danger");
         }
     } catch (err) {
-        showToast("Patient not found", "danger");
+        showToast("Failed to pull patient records. Is the server running?", "danger");
     }
 }
 
 function stopQRScanner() {
     if (html5QrCode) {
         html5QrCode.stop().then(() => {
+            document.getElementById('qr-scanner-overlay').classList.add('hidden');
+        }).catch(() => {
             document.getElementById('qr-scanner-overlay').classList.add('hidden');
         });
     } else {
@@ -204,19 +240,19 @@ async function renderMainDashboard(container) {
             <h1 style="margin-bottom:32px;">Clinical Overview</h1>
             <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:24px; margin-bottom:32px;">
                 <div class="widget" style="border-top:4px solid var(--primary);">
-                    <div class="widget-title">Active Patients <span>👥</span></div>
-                    <div style="font-size:2rem; font-weight:800;">24</div>
-                    <div style="font-size:0.8rem; color:var(--success);">↑ 4 since last shift</div>
+                    <div class="widget-title">Total Patients <span>👥</span></div>
+                    <div id="stat-total" style="font-size:2rem; font-weight:800;">—</div>
+                    <div style="font-size:0.8rem; color:var(--success);" id="stat-total-sub">Loading...</div>
                 </div>
                 <div class="widget" style="border-top:4px solid var(--danger);">
                     <div class="widget-title">Critical Alerts <span>⚠️</span></div>
-                    <div style="font-size:2rem; font-weight:800; color:var(--danger);">03</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted);">Requires immediate review</div>
+                    <div id="stat-critical" style="font-size:2rem; font-weight:800; color:var(--danger);">—</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);" id="stat-critical-sub">Loading...</div>
                 </div>
                 <div class="widget" style="border-top:4px solid var(--success);">
                     <div class="widget-title">Reports Verified <span>✅</span></div>
-                    <div style="font-size:2rem; font-weight:800;">128</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted);">98% AI accuracy</div>
+                    <div id="stat-reports" style="font-size:2rem; font-weight:800;">—</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Uploaded via Nexus Portal</div>
                 </div>
             </div>
 
@@ -229,27 +265,38 @@ async function renderMainDashboard(container) {
                 </div>
                 <div class="widget">
                     <div class="widget-title">Upcoming Reviews</div>
-                    <div class="flex-column" style="gap:16px;">
-                        <div style="display:flex; align-items:center; gap:12px; padding:12px; background:var(--bg-main); border-radius:12px;">
-                            <div class="logo-circle" style="width:32px; height:32px; font-size:0.8rem;">AS</div>
-                            <div>
-                                <div style="font-weight:700; font-size:0.85rem;">Arjun Sharma</div>
-                                <div style="font-size:0.75rem; color:var(--text-muted);">HbA1c Follow-up</div>
-                            </div>
-                            <div style="margin-left:auto; font-size:0.75rem; font-weight:700;">10:30 AM</div>
-                        </div>
+                    <div class="flex-column" style="gap:16px;" id="upcoming-reviews-list">
+                        Loading...
                     </div>
                 </div>
             </div>
         </div>
     `;
 
-    // Fetch and render recent patients
+    // Fetch real data and populate all stats
     try {
         const res = await fetch(`${API_BASE_URL}/patients`, {
             headers: { 'Authorization': `Bearer ${AUTH_TOKEN}` }
         });
         const patients = await res.json();
+
+        // --- Live Stats ---
+        const total = patients.length;
+        const critical = patients.filter(p => p.status === 'Critical').length;
+        // Count all lab report activities across all patients
+        const labReports = patients.reduce((acc, p) => {
+            return acc + (p.recentActivity ? p.recentActivity.filter(a => a.type === 'Lab Report').length : 0);
+        }, 0);
+
+        document.getElementById('stat-total').textContent = total;
+        document.getElementById('stat-total-sub').textContent =
+            `${patients.filter(p => p.status === 'Active' || p.status === 'Stable').length} stable • ${critical} critical`;
+        document.getElementById('stat-critical').textContent = String(critical).padStart(2, '0');
+        document.getElementById('stat-critical-sub').textContent =
+            critical > 0 ? `${critical} patient${critical > 1 ? 's' : ''} require immediate review` : 'No critical patients';
+        document.getElementById('stat-reports').textContent = labReports;
+
+        // --- Recent Patients List ---
         const list = document.getElementById('recent-patients-list');
         list.innerHTML = patients.slice(0, 5).map(p => `
             <div onclick="openPatientDetail(${p.id})" style="display:flex; align-items:center; gap:16px; padding:16px; border:1px solid var(--border); border-radius:16px; cursor:pointer;" class="nav-item">
@@ -262,8 +309,24 @@ async function renderMainDashboard(container) {
                 <div style="font-weight:700; color:var(--primary);">H: ${p.healthScore}</div>
             </div>
         `).join('');
+
+        // --- Upcoming Reviews (show patients with last visit, sorted by most recent) ---
+        const reviewList = document.getElementById('upcoming-reviews-list');
+        const sorted = [...patients].sort((a, b) => new Date(b.lastVisit) - new Date(a.lastVisit));
+        reviewList.innerHTML = sorted.slice(0, 4).map(p => `
+            <div onclick="openPatientDetail(${p.id})" style="display:flex; align-items:center; gap:12px; padding:12px; background:var(--bg-main); border-radius:12px; cursor:pointer;">
+                <div class="logo-circle" style="width:32px; height:32px; font-size:0.8rem;">${p.avatar}</div>
+                <div>
+                    <div style="font-weight:700; font-size:0.85rem;">${p.name}</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">${p.conditions ? p.conditions[0] : 'Follow-up'}</div>
+                </div>
+                <div class="badge badge-${p.status.toLowerCase()}" style="margin-left:auto;">${p.status}</div>
+            </div>
+        `).join('');
+
     } catch (err) {
-        list.innerHTML = 'Error loading patients';
+        const list = document.getElementById('recent-patients-list');
+        if (list) list.innerHTML = '<div style="color:var(--danger);">Error loading patient data. Is the server running?</div>';
     }
 }
 
