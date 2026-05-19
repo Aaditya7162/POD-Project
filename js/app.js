@@ -468,9 +468,15 @@ function renderPatientMedicalDashboard(container, patient) {
                                 </div>
                                 <div class="timeline-title">${act.type}</div>
                                 <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">${act.notes || 'No additional notes provided.'}</div>
-                                <div style="display:flex; align-items:center; gap:8px; font-size:0.75rem; font-weight:600;">
-                                    <span style="color:var(--primary);">👨‍⚕️ ${act.physician}</span>
-                                    ${act.critical ? '<span style="color:var(--danger);">⚠️ Critical Finding</span>' : ''}
+                                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:0.75rem; font-weight:600;">
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <span style="color:var(--primary);">👨‍⚕️ ${act.physician}</span>
+                                        ${act.critical ? '<span style="color:var(--danger);">⚠️ Critical Finding</span>' : ''}
+                                    </div>
+                                    ${act.reportData ? `
+                                    <button onclick="event.stopPropagation(); showAttachmentModal('${act.id}')" style="display:flex; align-items:center; gap:4px; background:var(--primary-light); color:var(--primary); border:none; padding:4px 10px; border-radius:8px; cursor:pointer; font-size:0.72rem; font-weight:700;">
+                                        📎 Attachment
+                                    </button>` : ''}
                                 </div>
                             </div>
                         </div>
@@ -778,7 +784,10 @@ function previewReport(id, type) {
         <div class="widget glass" style="width:80%; height:90%; display:flex; flex-direction:column; padding:0; overflow:hidden;">
             <div style="padding:16px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
                 <h3 style="margin:0;">Lab Report Preview</h3>
-                <button onclick="this.closest('.qr-scanner-overlay').remove()" class="btn-primary" style="padding:8px 16px;">Close Preview</button>
+                <div style="display:flex; gap:12px; align-items:center;">
+                    ${act && act.reportData ? `<button onclick="downloadReport('${id}')" class="btn-primary" style="padding:8px 16px; background:var(--success);">⬇️ Download</button>` : ''}
+                    <button onclick="this.closest('.qr-scanner-overlay').remove()" class="btn-primary" style="padding:8px 16px;">Close Preview</button>
+                </div>
             </div>
             <div style="flex-grow:1; background:#f1f5f9; padding:40px; overflow-y:auto; display:flex; justify-content:center;">
                 ${contentHtml}
@@ -800,6 +809,60 @@ function handleFileSelect(event) {
         window.currentUploadData = e.target.result;
     };
     reader.readAsDataURL(file);
+}
+
+function showAttachmentModal(actId) {
+    const act = window.currentPatientActivities ? window.currentPatientActivities.find(a => String(a.id) === String(actId)) : null;
+    if (!act || !act.reportData) {
+        return showToast('No attachment found for this record.', 'danger');
+    }
+
+    const isImage = act.reportData.startsWith('data:image');
+    const isPDF = act.reportData.startsWith('data:application/pdf');
+    const fileName = `report-${actId}.${isImage ? 'jpg' : 'pdf'}`;
+    const fileSize = Math.round((act.reportData.length * 3/4) / 1024);
+    const fileIcon = isPDF ? '📄' : '🖼️';
+    const fileLabel = isPDF ? 'PDF Document' : 'Image File';
+
+    const modal = document.createElement('div');
+    modal.className = 'qr-scanner-overlay animate-fade-in';
+    modal.innerHTML = `
+        <div class="widget glass" style="width:480px; padding:32px;">
+            <h2 style="margin-bottom:24px;">📎 Attachments</h2>
+            
+            <div style="border:1px solid var(--border); border-radius:16px; padding:20px; display:flex; align-items:center; gap:16px; background:var(--bg-main);">
+                <div style="font-size:2.5rem;">${fileIcon}</div>
+                <div style="flex-grow:1;">
+                    <div style="font-weight:700; font-size:0.95rem; margin-bottom:4px;">${fileName}</div>
+                    <div style="font-size:0.78rem; color:var(--text-muted);">${fileLabel} • ${fileSize} KB</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Uploaded: ${act.date}</div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <button onclick="previewReport('${actId}', 'Lab Report')" class="btn-primary" style="padding:8px 16px; font-size:0.8rem;">👁 Preview</button>
+                    <button onclick="downloadReport('${actId}')" class="btn-primary" style="padding:8px 16px; font-size:0.8rem; background:var(--success);">⬇️ Download</button>
+                </div>
+            </div>
+
+            <button onclick="this.closest('.qr-scanner-overlay').remove()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; width:100%; text-align:center; margin-top:20px;">Close</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function downloadReport(actId) {
+    const act = window.currentPatientActivities ? window.currentPatientActivities.find(a => String(a.id) === String(actId)) : null;
+    if (!act || !act.reportData) return showToast('No file to download.', 'danger');
+
+    const isImage = act.reportData.startsWith('data:image');
+    const fileName = `nexus-report-${actId}.${isImage ? 'jpg' : 'pdf'}`;
+
+    const a = document.createElement('a');
+    a.href = act.reportData;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('Download started!');
 }
 
 // --- GLOBAL SEARCH ---
