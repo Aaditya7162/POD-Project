@@ -180,6 +180,17 @@ def update_patient(current_user, id):
     db.session.commit()
     return jsonify({'message': 'Patient details updated', 'patient': patient.to_dict()}), 200
 
+@app.route('/api/patients/<int:id>', methods=['DELETE'])
+@token_required
+def delete_patient(current_user, id):
+    if current_user.role != 'admin':
+        return jsonify({'message': 'Unauthorized'}), 403
+        
+    patient = Patient.query.get_or_404(id)
+    db.session.delete(patient)
+    db.session.commit()
+    return jsonify({'message': 'Patient record deleted successfully'}), 200
+
 @app.route('/api/patients/scan', methods=['POST'])
 @token_required
 def scan_patient(current_user):

@@ -532,6 +532,11 @@ function renderPatientMedicalDashboard(container, patient) {
                         </div>
                     </div>
                 </div>
+                ${CURRENT_USER.role === 'admin' ? `
+                <div class="widget" style="margin-top:24px; border:1px solid var(--danger); background:rgba(239, 68, 68, 0.05);">
+                    <button class="btn-primary" style="background:var(--danger); width:100%;" onclick="deletePatientRecord(${patient.id}, '${patient.name}')">🗑️ Delete Patient Record</button>
+                </div>
+                ` : ''}
             </div>
         </div>
     `;
@@ -985,22 +990,44 @@ function showIdCardModal(patientId, abha, patientName) {
     const modal = document.createElement('div');
     modal.className = 'qr-scanner-overlay animate-fade-in';
     modal.innerHTML = `
-        <div class="widget glass" style="width:400px; padding:32px; text-align:center;">
-            <h2 style="margin-bottom:24px;">Patient ID Card</h2>
-            <div style="background:white; padding:24px; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin-bottom:24px;">
-                <div style="font-weight:bold; font-size:1.2rem; margin-bottom:8px; color:black;">${patientName}</div>
-                <div style="color:#666; font-size:0.9rem; margin-bottom:16px;">ABHA: ${abha}</div>
-                <div id="id-qrcode" style="display:flex; justify-content:center;"></div>
+        <div class="widget glass" style="width:480px; padding:32px; text-align:center;">
+            <h2 style="margin-bottom:24px; color:var(--text-main);">Patient ID Card</h2>
+            
+            <div class="nexus-id-card">
+                <div class="id-card-header">
+                    <div class="id-card-logo">
+                        <div class="logo-circle" style="width:24px; height:24px; font-size:0.7rem;">N</div>
+                        NEXUS HEALTH
+                    </div>
+                    <div class="id-card-chip"></div>
+                </div>
+                
+                <div class="id-card-body">
+                    <div class="id-card-info">
+                        <div class="id-card-name">${patientName}</div>
+                        <div style="display:flex; gap:16px; margin-bottom:12px;">
+                            <div>
+                                <div class="id-card-label">ABHA ID</div>
+                                <div class="id-card-value">${abha}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="id-card-qr-container">
+                        <div id="id-qrcode"></div>
+                    </div>
+                </div>
             </div>
-            <button onclick="this.closest('.qr-scanner-overlay').remove()" class="btn-primary" style="width:100%;">Close</button>
+
+            <button onclick="this.closest('.qr-scanner-overlay').remove()" class="btn-primary" style="width:100%; margin-top:24px;">Close ID Card</button>
         </div>
     `;
     document.body.appendChild(modal);
 
     new QRCode(document.getElementById("id-qrcode"), {
         text: abha,
-        width: 200,
-        height: 200,
+        width: 80,
+        height: 80,
         colorDark : "#000000",
         colorLight : "#ffffff",
         correctLevel : QRCode.CorrectLevel.H
@@ -1011,7 +1038,7 @@ function showBankDetailsModal(patient) {
     const modal = document.createElement('div');
     modal.className = 'qr-scanner-overlay animate-fade-in';
     modal.innerHTML = `
-        <div class="widget glass" style="width:500px; padding:32px;">
+        <div class="widget glass" style="width:500px; padding:32px;" id="bank-details-form-view">
             <h2 style="margin-bottom:24px;">Update Emergency Insurance & Bank Details</h2>
             <div style="display:flex; flex-direction:column; gap:16px;">
                 <div class="form-group">
@@ -1031,15 +1058,45 @@ function showBankDetailsModal(patient) {
                     <input type="text" id="edit-ifsc" class="search-input" style="padding-left:16px; width:100%;" value="${patient.ifscCode || ''}" placeholder="e.g. HDFC0001234">
                 </div>
                 <div style="display:flex; gap:12px; margin-top:12px;">
-                    <button class="btn-primary" style="flex-grow:1;" id="save-bank-details">Save Details</button>
+                    <button class="btn-primary" style="flex-grow:1;" id="initiate-save-bank-details">Save Details</button>
                     <button onclick="this.closest('.qr-scanner-overlay').remove()" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">Cancel</button>
                 </div>
+            </div>
+        </div>
+
+        <div class="widget glass hidden" style="width:400px; padding:32px; text-align:center;" id="bank-details-otp-view">
+            <h2 style="margin-bottom:16px;">Security Verification</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:24px;">To update sensitive financial data, please enter the 4-digit authorization PIN.</p>
+            <p style="color:var(--text-muted); font-size:0.75rem; margin-bottom:16px;">(Hint: For this prototype, use PIN <strong>1234</strong>)</p>
+            
+            <div class="otp-container">
+                <input type="text" maxlength="1" class="otp-input" id="otp-1" onkeyup="if(this.value.length) document.getElementById('otp-2').focus()">
+                <input type="text" maxlength="1" class="otp-input" id="otp-2" onkeyup="if(this.value.length) document.getElementById('otp-3').focus()">
+                <input type="text" maxlength="1" class="otp-input" id="otp-3" onkeyup="if(this.value.length) document.getElementById('otp-4').focus()">
+                <input type="text" maxlength="1" class="otp-input" id="otp-4" onkeyup="if(this.value.length) document.getElementById('verify-otp-btn').click()">
+            </div>
+
+            <div style="display:flex; gap:12px; margin-top:24px;">
+                <button class="btn-primary" style="flex-grow:1;" id="verify-otp-btn">Verify & Save</button>
+                <button onclick="document.getElementById('bank-details-otp-view').classList.add('hidden'); document.getElementById('bank-details-form-view').classList.remove('hidden');" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">Back</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
 
-    modal.querySelector('#save-bank-details').addEventListener('click', async () => {
+    modal.querySelector('#initiate-save-bank-details').addEventListener('click', () => {
+        document.getElementById('bank-details-form-view').classList.add('hidden');
+        document.getElementById('bank-details-otp-view').classList.remove('hidden');
+        document.getElementById('otp-1').focus();
+    });
+
+    modal.querySelector('#verify-otp-btn').addEventListener('click', async () => {
+        const pin = document.getElementById('otp-1').value + document.getElementById('otp-2').value + document.getElementById('otp-3').value + document.getElementById('otp-4').value;
+        
+        if (pin !== '1234') {
+            return showToast("Invalid Authorization PIN", "danger");
+        }
+
         const insuranceProvider = document.getElementById('edit-insurance-provider').value;
         const insurancePolicyNumber = document.getElementById('edit-insurance-policy').value;
         const bankAccountNumber = document.getElementById('edit-bank-account').value;
@@ -1055,7 +1112,7 @@ function showBankDetailsModal(patient) {
                 body: JSON.stringify({ insuranceProvider, insurancePolicyNumber, bankAccountNumber, ifscCode })
             });
             if (res.ok) {
-                showToast("Bank details updated successfully!");
+                showToast("Bank details updated securely!");
                 modal.remove();
                 openPatientDetail(patient.id);
             } else {
@@ -1065,4 +1122,26 @@ function showBankDetailsModal(patient) {
             showToast("Network Error", "danger");
         }
     });
+}
+
+async function deletePatientRecord(patientId, patientName) {
+    if (confirm(`⚠️ WARNING: Are you sure you want to permanently delete the medical record for ${patientName}? This action cannot be undone.`)) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/patients/${patientId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${AUTH_TOKEN}`
+                }
+            });
+            
+            if (res.ok) {
+                showToast("Patient record successfully deleted", "success");
+                switchView('patients');
+            } else {
+                showToast("Unauthorized or Error deleting patient", "danger");
+            }
+        } catch (err) {
+            showToast("Network Error", "danger");
+        }
+    }
 }
